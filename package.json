@@ -1,0 +1,12 @@
+{
+  "name": "parametron-puzzle",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Japanese majority-logic circuit puzzle built with parametrons.",
+  "scripts": {
+    "test": "node tests/logic.cjs && node tests/playthrough.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}

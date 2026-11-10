@@ -1,0 +1,38 @@
+
+  #parametron-workshop [hidden] { display:none !important; }
+  #parametron-workshop .pw-stack { display:grid; gap:calc(var(--font-size-base) * 1); }
+  #parametron-workshop .pw-heading { padding-right:90px; }
+  #parametron-workshop .pw-gates { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr)); gap:calc(var(--font-size-base) * 1.5); }
+  #parametron-workshop .pw-gate { display:grid; gap:calc(var(--font-size-base) * 0.5); min-width:0; align-content:start; }
+  #parametron-workshop .pw-wiring { display:grid; grid-template-columns:minmax(0,1fr) 108px; align-items:center; }
+  #parametron-workshop .pw-ports { display:grid; gap:calc(var(--font-size-base) * 0.5); }
+  #parametron-workshop .pw-port { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:calc(var(--font-size-base) * 0.5); align-items:center; }
+  #parametron-workshop .pw-fixed-port { display:flex; align-items:center; justify-content:space-between; gap:calc(var(--font-size-base) * 0.5); min-height:44px; }
+  #parametron-workshop .pw-symbol { width:108px; height:156px; color:var(--foreground); }
+  #parametron-workshop .pw-symbol path { fill:none; stroke:var(--border); stroke-width:1.5; }
+  #parametron-workshop .pw-symbol circle, #parametron-workshop .pw-symbol rect { fill:var(--muted); stroke:var(--border); stroke-width:1.5; }
+  #parametron-workshop .pw-symbol text { fill:var(--foreground); font:inherit; }
+  #parametron-workshop .pw-symbol .pw-on { fill:color-mix(in srgb,var(--viz-series-1) 18%,var(--background)); }
+  #parametron-workshop .pw-signal { display:flex; align-items:center; gap:calc(var(--font-size-base) * 0.5); }
+  #parametron-workshop .pw-wave { display:inline-flex; width:72px; height:24px; flex-shrink:0; vertical-align:middle; }
+  #parametron-workshop .pw-wave svg { width:72px; height:24px; overflow:hidden; }
+  #parametron-workshop .pw-wave path { fill:none; stroke:var(--viz-series-1); stroke-width:1.5; }
+  #parametron-workshop .pw-wave line { stroke:var(--border); stroke-width:1; }
+  #parametron-workshop .pw-moving { animation:pw-travel 1.8s linear infinite; animation-delay:var(--pw-delay,0s); }
+  #parametron-workshop.pw-paused .pw-moving { animation-play-state:paused; }
+  #parametron-workshop .pw-selected-row { background:var(--accent); color:var(--accent-foreground); }
+  #parametron-workshop .pw-output { display:flex; align-items:center; gap:calc(var(--font-size-base) * 0.5); flex-wrap:wrap; }
+  @keyframes pw-travel { from { transform:translateX(0); } to { transform:translateX(-48px); } }
+  @media (prefers-reduced-motion:reduce) { #parametron-workshop .pw-moving { animation:none; } }
+
+body { max-width:1000px; margin:0 auto; padding:24px 20px; }
+.site-header { display:grid; gap:8px; margin-bottom:32px; }
+.site-kicker { color:var(--muted-foreground); letter-spacing:0.14em; font-size:12px; }
+.site-header h1 { font-size:clamp(22px,4.5vw,32px); font-weight:500; }
+.site-header p { color:var(--muted-foreground); }
+.site-footer { display:flex; flex-wrap:wrap; gap:16px; margin-top:40px; padding-top:20px; border-top:1px solid var(--border); color:var(--muted-foreground); font-size:12px; }
+#parametron-workshop .pw-heading { padding-right:0; }
+#parametron-workshop h3 { font-size:20px; }
+#parametron-workshop #pw-lesson { line-height:1.8; }
+#parametron-workshop .pw-gates { margin:12px 0; }
+@media(max-width:400px) { body { padding:20px 12px; } }

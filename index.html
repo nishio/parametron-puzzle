@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="多数決素子を組み合わせてAND、OR、XOR、加算器を作るパラメトロン計算機パズル。">
+  <meta name="theme-color" content="#182327">
+  <title>パラメトロン計算機パズル</title>
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="site-header"><div class="site-kicker">MAJORITY LOGIC LAB</div><h1>パラメトロン計算機パズル</h1><p>多数決から、計算機を組み立てる。</p></header>
+  <main>
+<div id="parametron-workshop">
+  <div class="pw-stack">
+    <div class="viz-controls pw-heading">
+      <label class="form-label">ステップ<select class="form-select" id="pw-level" aria-label="ステップ"></select></label>
+      <span id="pw-budget" class="text-small"></span>
+    </div>
+    <h3 id="pw-title"></h3>
+    <p id="pw-lesson"></p>
+    <div class="viz-row" id="pw-inputs" aria-label="入力を切り替える"></div>
+    <div class="pw-gates" id="pw-gates" aria-label="回路の配線"></div>
+    <div class="viz-controls" id="pw-palette">
+      <label class="form-label">追加する部品<select class="form-select" id="pw-part" aria-label="追加する部品"></select></label>
+      <button type="button" class="btn" id="pw-add">追加</button>
+    </div>
+    <div class="pw-stack" id="pw-outputs" aria-label="出力の接続"></div>
+    <div id="pw-status" role="status" aria-live="polite"></div>
+    <div class="table-responsive"><table class="table table-sm tabular-nums" id="pw-table" aria-label="真理値表"></table></div>
+    <div class="viz-row">
+      <button type="button" class="btn btn-primary" id="pw-next">ANDに挑戦する</button>
+      <button type="button" class="btn btn-ghost" id="pw-motion" aria-pressed="true">振動を止める</button>
+    </div>
+    <div class="text-small text-muted" id="pw-storage">進捗はこのブラウザに自動保存されます。</div>
+    <div class="text-small text-muted">0と1は逆位相。波形は模式表示です。素子数には、部品の中身を含めます。反転配線・定数・分岐は数えません。</div>
+  </div>
+</div>
+
+  </main>
+  <footer class="site-footer"><a href="https://github.com/nishio/parametron-puzzle">GitHub</a><span>3入力の多数決と、逆位相の配線で。</span></footer>
+  <noscript>このパズルを遊ぶにはJavaScriptを有効にしてください。</noscript>
+</body>
+</html>
