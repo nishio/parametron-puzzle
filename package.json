@@ -5,7 +5,8 @@
   "description": "A Japanese majority-logic circuit puzzle built with parametrons.",
   "scripts": {
     "test": "node tests/logic.cjs && node tests/playthrough.cjs",
-    "test:visual": "node tests/visual.cjs"
+    "test:visual": "node tests/visual.cjs",
+    "test:layout": "node tests/layout.cjs"
   },
   "devDependencies": {
     "jsdom": "26.1.0",

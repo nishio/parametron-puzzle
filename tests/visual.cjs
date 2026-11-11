@@ -8,8 +8,9 @@ const out=path.resolve(root,process.env.PW_ARTIFACT_DIR||'.artifacts/ui-review')
 const site=process.env.SITE_URL||pathToFileURL(path.join(root,'index.html')).href;
 fs.mkdirSync(out,{recursive:true});
 const reports=[],errors=[];
+let browser;
 (async()=>{
- const browser=await chromium.launch({channel:process.env.PW_CHANNEL||'msedge',headless:true});
+ browser=await chromium.launch({channel:process.env.PW_CHANNEL||'msedge',headless:true});
  async function connect(page,gate,port,source){
   await page.locator(`[data-gate-index="${gate-1}"][data-port-index="${port-1}"]`).click();
   await page.locator('#pw-connect-invert').setChecked(source.startsWith('!'));
@@ -92,4 +93,4 @@ const reports=[],errors=[];
  assert.deepEqual(errors,[]);
  fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({site,reports,errors},null,2));
  console.log(JSON.stringify({pass:true,viewports:[1280,768,390,320],screenshots:reports.length,checks:'visible first connection, no horizontal overflow, native Enter/Escape and focus return, incorrect choice and undo, earned parts, 9- and 3-element full adders, reload',output:out}));
-})().catch(error=>{console.error(error);process.exitCode=1;});
+})().catch(async error=>{console.error(error);await browser?.close();process.exitCode=1;});

@@ -81,6 +81,21 @@ main { padding-top:24px; }
 #pw-gates { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:28px 30px; align-items:start; }
 .gate-card { min-width:0; background:var(--surface); border:1px solid var(--line-strong); border-radius:12px; padding:14px 12px 10px; box-shadow:0 3px 9px #1e324a06; }
 .node-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 10px; margin-bottom:12px; }
+.node-heading .node-type { flex:1; }
+.move-handle { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:44px; min-width:58px; padding:5px 9px; background:#edf3fa; border:1px solid var(--line-strong); border-radius:7px; color:var(--focus); font-size:12px; cursor:grab; touch-action:none; user-select:none; }
+.move-handle[aria-pressed="true"] { background:var(--ink); color:#fff; }
+.move-handle:active,.layout-dragging .move-handle { cursor:grabbing; }
+#pw-gates.free-layout { display:block; position:relative; min-height:80px; max-width:none; }
+.workbench { overflow-anchor:none; }
+#pw-gates.free-layout .gate-card { position:absolute; margin:0; }
+.gate-card.is-dragging { z-index:3; box-shadow:0 9px 22px #1e324a30; outline:2px solid var(--focus); }
+.layout-dragging #pw-wires { opacity:.55; }
+.layout-tools { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 16px; padding:12px 18px; border-top:1px solid var(--line); background:#f8fafc; }
+.layout-tools>p { flex:1; min-width:180px; color:var(--muted); font-size:12px; }
+.move-controls { width:100%; display:grid; gap:8px; color:var(--ink); font-size:12px; }
+.move-directions { display:flex; flex-wrap:wrap; gap:7px; }
+.move-directions>button { min-width:44px; min-height:44px; padding:6px 10px; background:var(--surface); color:var(--ink); border:1px solid var(--line-strong); border-radius:7px; touch-action:manipulation; }
+.move-keyboard-help { color:var(--muted); font-size:11px; }
 .node-name { font-size:13px; font-weight:700; }
 .node-type { font-size:11px; color:var(--muted); }
 .gate-body { display:grid; grid-template-columns:minmax(0,1fr) 83px; gap:12px; align-items:center; }

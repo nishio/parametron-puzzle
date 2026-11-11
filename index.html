@@ -6,8 +6,8 @@
   <meta name="description" content="0と1の多数決から始める、パラメトロン計算機パズル。線をつないでAND、OR、XOR、加算器を作ろう。">
   <meta name="theme-color" content="#f4f6f8">
   <title>パラメトロン計算機パズル</title>
-  <link rel="stylesheet" href="style.css?v=2">
-  <script src="app.js?v=2" defer></script>
+  <link rel="stylesheet" href="style.css?v=3">
+  <script src="app.js?v=3" defer></script>
 </head>
 <body>
   <div class="page-shell">
@@ -46,6 +46,21 @@
           </div>
         </div>
         <p class="wire-help">線をたどるには、入力口に触れてみよう。その配線と接続元が強調されます。</p>
+        <div class="layout-tools" id="pw-layout-tools" hidden>
+          <p>装置の「移動」をドラッグすると配置を変えられます。タップして矢印で調整することもできます。</p>
+          <button class="button button-secondary" id="pw-arrange" type="button">配置を整える</button>
+          <div class="move-controls" id="pw-move-controls" hidden>
+            <strong id="pw-move-label"></strong>
+            <div class="move-directions" aria-label="選んだ装置の移動">
+              <button type="button" data-nudge="left" aria-label="装置を左へ移動">←</button>
+              <button type="button" data-nudge="up" aria-label="装置を上へ移動">↑</button>
+              <button type="button" data-nudge="down" aria-label="装置を下へ移動">↓</button>
+              <button type="button" data-nudge="right" aria-label="装置を右へ移動">→</button>
+              <button type="button" class="button button-quiet" id="pw-move-done">移動を終える</button>
+            </div>
+            <span class="move-keyboard-help">キーボード：移動ボタンにフォーカスして矢印キー。Shiftで大きく移動。</span>
+          </div>
+        </div>
         <div class="board-toolbar">
           <div class="edit-actions">
             <button class="button button-quiet" id="pw-undo" type="button">ひとつ戻す</button>

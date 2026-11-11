@@ -91,6 +91,15 @@
     const choices=[...base,...gates.map((_,i)=>'P'+(i+1))];
     const outputs=Object.fromEntries(level.outputs.map(name=>[name,normalizeEdge(candidate.outputs?.[name],choices)]));
     const board={gates,outputs,input:Number.isInteger(candidate.input)?Math.max(0,Math.min(2**level.inputs.length-1,candidate.input)):0};
+    if(candidate.layout&&typeof candidate.layout==='object'){
+      board.layout={};
+      for(const mode of ['wide','narrow'])if(Array.isArray(candidate.layout[mode])){
+        board.layout[mode]=gates.map((_,i)=>{
+          const point=candidate.layout[mode][i];
+          return point&&Number.isFinite(point.x)&&Number.isFinite(point.y)?{x:Math.max(0,Math.min(1,point.x)),y:Math.max(0,Math.min(8192,point.y))}:null;
+        });
+      }
+    }
     return allocatedCost(board,library)<=level.budget?board:fallback();
   }
   function removeGate(board,index) {
@@ -101,6 +110,7 @@
       return edge;
     };
     result.gates.splice(index,1);
+    if(result.layout)for(const positions of Object.values(result.layout))positions.splice(index,1);
     result.gates.forEach(gate=>{gate.ports=gate.ports.map(map);});
     Object.keys(result.outputs).forEach(name=>{result.outputs[name]=map(result.outputs[name]);});
     return result;
@@ -126,7 +136,15 @@
         mapping['P'+(i+1)]=mapEdge(part.outputs.Y,innerMap);
       }
     });
-    return {gates,outputs:Object.fromEntries(Object.entries(board.outputs).map(([name,edge])=>[name,mapEdge(edge,mapping)])),input:board.input};
+    const result={gates,outputs:Object.fromEntries(Object.entries(board.outputs).map(([name,edge])=>[name,mapEdge(edge,mapping)])),input:board.input};
+    if(board.layout){
+      result.layout=clone(board.layout);
+      for(const positions of Object.values(result.layout)){
+        const origin=positions[index];
+        positions.splice(index,1,...part.gates.map((_,i)=>origin?{x:origin.x,y:Math.min(8192,origin.y+i*280)}:null));
+      }
+    }
+    return result;
   }
   function normalizeGame(candidate) {
     const game={version:VERSION,level:0,introDone:false,boards:{},library:{},bests:{},motion:true};
@@ -183,6 +201,12 @@
   let drawFrame=null;
   let notice='';
   let traceSink=null;
+  let moveTarget=null;
+  let drag=null;
+  let suppressDragClick=false;
+  let placements=[];
+  let layoutWidth=0;
+  let scrollFrame=null;
   const currentLevel=()=>levels[game.level];
   const currentBoard=()=>game.boards[currentLevel().id]||(game.boards[currentLevel().id]=freshBoard(currentLevel()));
   const unlocked=index=>index===0||(index===1?game.introDone:game.bests[levels[index-1].id]!==undefined);
@@ -286,7 +310,8 @@
     $('#pw-gates').innerHTML=board.gates.length?board.gates.map((gate,index)=>{
       const value=observed.values['P'+(index+1)];
       const tools=level.demo||game.level<3?'':`<details class="node-tools"><summary>この${gate.type==='MAJ'?'装置':'部品'}を編集</summary><div class="node-actions">${gate.type!=='MAJ'?`<button type="button" data-expand-gate="${index}">中を開く（${partCost(gate.type,game.library)}個）</button>`:''}<button type="button" data-remove-gate="${index}">取り外す</button></div></details>`;
-      return `<section class="gate-card" data-index="${index}" aria-label="P${index+1} ${gate.type==='MAJ'?'多数決の装置':gate.type+'の部品'}"><div class="node-heading"><span class="node-name">P${index+1}</span><span class="node-type">${gate.type==='MAJ'?'多数決の装置':gate.type+'の部品 · 中身'+partCost(gate.type,game.library)+'個'}</span></div><div class="gate-body"><div class="gate-inputs">${gate.ports.map((edge,port)=>socket({kind:'gate',index,port},edge,observed.values,!level.demo)).join('')}</div><div class="gate-core"><div class="majority-core" data-value="${valueAttr(value)}"><span class="core-label">${gate.type==='MAJ'?'多数決':gate.type}</span><strong class="core-value">${valueText(value)}</strong></div><button type="button" class="gate-output" data-source="P${index+1}" data-value="${valueAttr(value)}" aria-label="P${index+1}の出力 ${valueText(value)}" disabled><span>出力</span><span class="signal-value">${valueText(value)}</span>${wave(value)}</button></div></div>${tools}</section>`;
+      const handle=level.demo?'':`<button type="button" class="move-handle" data-move-gate="${index}" aria-label="P${index+1}を移動。ドラッグまたは矢印キーで配置" aria-pressed="${moveTarget===index}">移動 <span aria-hidden="true">↕</span></button>`;
+      return `<section class="gate-card" data-index="${index}" aria-label="P${index+1} ${gate.type==='MAJ'?'多数決の装置':gate.type+'の部品'}"><div class="node-heading"><span class="node-name">P${index+1}</span><span class="node-type">${gate.type==='MAJ'?'多数決の装置':gate.type+'の部品 · 中身'+partCost(gate.type,game.library)+'個'}</span>${handle}</div><div class="gate-body"><div class="gate-inputs">${gate.ports.map((edge,port)=>socket({kind:'gate',index,port},edge,observed.values,!level.demo)).join('')}</div><div class="gate-core"><div class="majority-core" data-value="${valueAttr(value)}"><span class="core-label">${gate.type==='MAJ'?'多数決':gate.type}</span><strong class="core-value">${valueText(value)}</strong></div><button type="button" class="gate-output" data-source="P${index+1}" data-value="${valueAttr(value)}" aria-label="P${index+1}の出力 ${valueText(value)}" disabled><span>出力</span><span class="signal-value">${valueText(value)}</span>${wave(value)}</button></div></div>${tools}</section>`;
     }).join(''):'<div class="empty-board">装置がありません。下の「部品を追加」から置いてみよう。</div>';
     $('#pw-outputs').innerHTML='<h3 class="board-column-label">できた信号</h3>'+level.outputs.map(name=>{
       const expected=level.target(testRow(level,board.input))[name],value=observed.outputs[name];
@@ -319,8 +344,146 @@
     $('#pw-part').value=allowedTypes(level,game.library).includes(selectedPart)?selectedPart:'MAJ';
     $('#pw-add').disabled=allocatedCost(board,game.library)+partCost($('#pw-part').value,game.library)>level.budget;
     $('#pw-motion').textContent=game.motion?'振動を止める':'振動を動かす';$('#pw-motion').setAttribute('aria-pressed',String(game.motion));
-    showHint();scheduleWires();
+    showHint();placeGates();refreshMoveControls();scheduleWires();
   }
+  function layoutMetrics(){
+    const canvas=$('#pw-gates'),width=canvas.clientWidth||canvas.getBoundingClientRect().width||320;
+    const columns=width>=640?2:1,cardWidth=Math.min(width,columns===2?(width-32)/2:400);
+    return {canvas,width,cardWidth,columns,mode:columns===2?'wide':'narrow',maxX:Math.max(0,width-cardWidth)};
+  }
+  function separateCards(points,pinned=null){
+    const order=points.map((_,i)=>i).sort((a,b)=>points[a].y-points[b].y||points[a].x-points[b].x);
+    if(pinned!==null){order.splice(order.indexOf(pinned),1);order.unshift(pinned);}
+    const placed=[];
+    for(const index of order){
+      const point=points[index];
+      for(let attempt=0;attempt<points.length+1;attempt++){
+        const collisions=placed.filter(other=>point.x<other.x+other.width+16&&point.x+point.width+16>other.x&&point.y<other.y+other.height+28&&point.y+point.height+28>other.y);
+        if(!collisions.length)break;
+        point.y=Math.max(...collisions.map(other=>other.y+other.height+32));
+      }
+      placed.push(point);
+    }
+    return points;
+  }
+  function paintPlacements(){
+    const canvas=$('#pw-gates');
+    placements.forEach((point,i)=>{const card=canvas.querySelector(`[data-index="${i}"]`);if(card){card.style.left=point.x+'px';card.style.top=point.y+'px';}});
+    canvas.style.height=placements.length?Math.ceil(Math.max(...placements.map(point=>point.y+point.height))+48)+'px':'80px';
+  }
+  function placeGates(){
+    const canvas=$('#pw-gates');canvas.classList.toggle('free-layout',!currentLevel().demo);
+    if(currentLevel().demo){canvas.style.height='';placements=[];return;}
+    const metrics=layoutMetrics(),saved=currentBoard().layout?.[metrics.mode];
+    layoutWidth=metrics.width;
+    const cards=[...canvas.querySelectorAll('.gate-card')];cards.forEach(card=>{card.style.width=metrics.cardWidth+'px';});
+    const heights=cards.map(card=>card.getBoundingClientRect().height||card.offsetHeight||240);
+    let rowY=0;
+    placements=cards.map((card,i)=>{
+      if(i>0&&i%metrics.columns===0)rowY+=Math.max(...heights.slice(i-metrics.columns,i))+32;
+      const fallback={x:(i%metrics.columns)*metrics.maxX,y:rowY};
+      const point=saved?.[i];
+      return {x:point?point.x*metrics.maxX:fallback.x,y:point?point.y:fallback.y,width:metrics.cardWidth,height:heights[i]};
+    });
+    separateCards(placements);paintPlacements();
+  }
+  function rememberPlacements(){
+    const {mode,maxX}=layoutMetrics(),board=currentBoard();
+    board.layout=board.layout||{};
+    board.layout[mode]=placements.map(point=>({x:maxX?point.x/maxX:0,y:Math.min(8192,point.y)}));
+  }
+  function refreshMoveControls(){
+    if(moveTarget!==null&&!currentBoard().gates[moveTarget])moveTarget=null;
+    $('#pw-layout-tools').hidden=!!currentLevel().demo||(game.level<3&&moveTarget===null);
+    $('#pw-move-controls').hidden=moveTarget===null;
+    $('#pw-move-label').textContent=moveTarget===null?'':`P${moveTarget+1}の配置`;
+    $('#pw-arrange').disabled=!currentBoard().layout;
+    root.querySelectorAll('[data-move-gate]').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.moveGate)===moveTarget)));
+  }
+  function nudgeGate(index,dx,dy){
+    if(!placements[index])return;
+    const {maxX}=layoutMetrics();
+    const point=placements[index];
+    const x=Math.max(0,Math.min(maxX,point.x+dx)),y=Math.max(0,Math.min(4096,point.y+dy));
+    if(x===point.x&&y===point.y)return;
+    const original=clone(currentBoard());point.x=x;point.y=y;separateCards(placements,index);rememberPlacements();
+    (history[currentLevel().id]||(history[currentLevel().id]=[])).push(original);
+    if(history[currentLevel().id].length>30)history[currentLevel().id].shift();
+    notice=`P${index+1}を移動しました。配線はつながったままです。`;render();save();
+    root.querySelector(`[data-move-gate="${index}"]`)?.focus({preventScroll:true});
+  }
+  root.addEventListener('pointerdown',event=>{
+    if(!drag)suppressDragClick=false;
+    const handle=event.target.closest('[data-move-gate]');if(!handle||event.button!==0||drag)return;
+    const index=Number(handle.dataset.moveGate),point=placements[index];if(!point)return;
+    const rect=$('#pw-gates').getBoundingClientRect();
+    drag={index,pointer:event.pointerId,handle,original:clone(currentBoard()),offsetX:event.clientX-rect.left-point.x,offsetY:event.clientY-rect.top-point.y,startX:event.clientX,startY:event.clientY,moved:false};
+    handle.setPointerCapture?.(event.pointerId);
+  });
+  root.addEventListener('pointermove',event=>{
+    if(!drag||event.pointerId!==drag.pointer)return;
+    if(!drag.moved&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<5)return;
+    drag.moved=true;moveTarget=drag.index;
+    drag.clientX=event.clientX;drag.clientY=event.clientY;
+    const {canvas,maxX}=layoutMetrics(),rect=canvas.getBoundingClientRect(),point=placements[drag.index];
+    point.x=Math.max(0,Math.min(maxX,Math.round((event.clientX-rect.left-drag.offsetX)/16)*16));
+    point.y=Math.max(0,Math.min(4096,Math.round((event.clientY-rect.top-drag.offsetY)/16)*16));
+    canvas.querySelector(`[data-index="${drag.index}"]`).classList.add('is-dragging');
+    root.classList.add('layout-dragging');paintPlacements();scheduleWires();event.preventDefault();
+    if(scrollFrame===null)scrollFrame=window.requestAnimationFrame(scrollWhileDragging);
+  });
+  function scrollWhileDragging(){
+    scrollFrame=null;if(!drag?.moved)return;
+    const amount=drag.clientY<64?-12:drag.clientY>window.innerHeight-64?12:0;
+    if(amount){
+      const before=window.scrollY;window.scrollBy({top:amount,behavior:'instant'});
+      if(window.scrollY!==before){
+        const rect=$('#pw-gates').getBoundingClientRect(),point=placements[drag.index];
+        point.y=Math.max(0,Math.min(4096,Math.round((drag.clientY-rect.top-drag.offsetY)/16)*16));paintPlacements();scheduleWires();
+      }
+    }
+    scrollFrame=window.requestAnimationFrame(scrollWhileDragging);
+  }
+  function finishDrag(event,cancelled=false){
+    if(!drag||event.pointerId!==drag.pointer)return;
+    const completed=drag;drag=null;
+    if(scrollFrame!==null){window.cancelAnimationFrame(scrollFrame);scrollFrame=null;}
+    if(completed.handle.hasPointerCapture?.(completed.pointer))completed.handle.releasePointerCapture(completed.pointer);
+    root.classList.remove('layout-dragging');
+    if(cancelled){game.boards[currentLevel().id]=completed.original;render();return;}
+    if(!completed.moved){
+      if(event.pointerType==='touch'){
+        moveTarget=moveTarget===completed.index?null:completed.index;refreshMoveControls();suppressDragClick=true;
+        completed.handle.focus({preventScroll:true});
+      }
+      return;
+    }
+    separateCards(placements,completed.index);rememberPlacements();
+    (history[currentLevel().id]||(history[currentLevel().id]=[])).push(completed.original);
+    if(history[currentLevel().id].length>30)history[currentLevel().id].shift();
+    suppressDragClick=true;notice=`P${completed.index+1}を移動しました。配置は自動保存されます。`;render();save();
+    root.querySelector(`[data-move-gate="${completed.index}"]`)?.focus({preventScroll:true});
+  }
+  root.addEventListener('pointerup',event=>{
+    const nudge=event.target.closest('[data-nudge]');
+    if(!drag&&event.pointerType==='touch'&&nudge&&moveTarget!==null){
+      const direction={left:[-16,0],right:[16,0],up:[0,-16],down:[0,16]}[nudge.dataset.nudge];
+      if(direction){event.preventDefault();nudgeGate(moveTarget,...direction);suppressDragClick=true;}
+      return;
+    }
+    finishDrag(event);
+  });
+  root.addEventListener('pointercancel',event=>finishDrag(event,true));
+  root.addEventListener('lostpointercapture',event=>{if(drag&&event.pointerId===drag.pointer)finishDrag(event,true);});
+  window.addEventListener('blur',()=>{if(drag)finishDrag({pointerId:drag.pointer},true);});
+  root.addEventListener('keydown',event=>{
+    if(!drag)suppressDragClick=false;
+    const handle=event.target.closest('[data-move-gate]');if(!handle)return;
+    const directions={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+    if(!directions[event.key])return;
+    event.preventDefault();moveTarget=Number(handle.dataset.moveGate);const amount=event.shiftKey?64:16;
+    nudgeGate(moveTarget,...directions[event.key].map(value=>value*amount));
+  });
   function orthogonalRoute(start,end,obstacles,width,height){
     const xs=[...new Set([3,width-3,start.x,end.x,...obstacles.flatMap(box=>[box.left,box.right])])].sort((a,b)=>a-b);
     const ys=[...new Set([3,height-3,start.y,end.y,...obstacles.flatMap(box=>[box.top,box.bottom])])].sort((a,b)=>a-b);
@@ -385,8 +548,13 @@
   root.addEventListener('focusin',event=>{const sink=event.target.closest('[data-sink]');if(sink)traceWire(sink.dataset.sink);else if(!$('#pw-connect-dialog').contains(event.target))traceWire(null);});
   root.addEventListener('pointerover',event=>{const sink=event.target.closest('[data-sink]');if(sink)traceWire(sink.dataset.sink);});
   root.addEventListener('pointerout',event=>{const sink=event.target.closest('[data-sink]');if(sink&&!sink.contains(event.relatedTarget)&&!$('#pw-connect-dialog').open&&!document.activeElement?.closest('[data-sink]'))traceWire(null);});
+  root.addEventListener('click',event=>{if(suppressDragClick){suppressDragClick=false;event.preventDefault();event.stopImmediatePropagation();}},true);
   root.addEventListener('click',event=>{
     if(!event.target.closest('button,select,input,summary,dialog'))traceWire(null);
+    const mover=event.target.closest('[data-move-gate]');
+    if(mover){const index=Number(mover.dataset.moveGate);moveTarget=moveTarget===index?null:index;refreshMoveControls();mover.focus({preventScroll:true});return;}
+    const nudge=event.target.closest('[data-nudge]');
+    if(nudge&&moveTarget!==null){const direction={left:[-16,0],right:[16,0],up:[0,-16],down:[0,16]}[nudge.dataset.nudge];if(direction)nudgeGate(moveTarget,...direction);return;}
     const input=event.target.closest('[data-toggle-input]');
     if(input){const name=input.dataset.toggleInput,index=currentLevel().inputs.indexOf(name);currentBoard().input^=1<<(currentLevel().inputs.length-1-index);render();save();root.querySelector(`[data-toggle-input="${name}"]`)?.focus();return;}
     const candidate=event.target.closest('[data-connect-source]');
@@ -396,23 +564,26 @@
     const test=event.target.closest('[data-test-row]');
     if(test){const row=Number(test.dataset.testRow);currentBoard().input=row;render();save();root.querySelector(`[data-test-row="${row}"]`)?.focus();return;}
     const expand=event.target.closest('[data-expand-gate]');
-    if(expand){const index=Number(expand.dataset.expandGate);edit(board=>expandGate(board,index,game.library),'部品の中の配線を開きました。つながりはそのままです。');return;}
+    if(expand){const index=Number(expand.dataset.expandGate);moveTarget=null;edit(board=>expandGate(board,index,game.library),'部品の中の配線を開きました。つながりはそのままです。');return;}
     const remove=event.target.closest('[data-remove-gate]');
-    if(remove){const index=Number(remove.dataset.removeGate);edit(board=>removeGate(board,index),'装置を取り外しました。つなぎ直すか、「ひとつ戻す」で戻せます。');return;}
+    if(remove){const index=Number(remove.dataset.removeGate);moveTarget=null;edit(board=>removeGate(board,index),'装置を取り外しました。つなぎ直すか、「ひとつ戻す」で戻せます。');return;}
   });
   $('#pw-connect-cancel').addEventListener('click',closePicker);
   $('#pw-connect-dialog').addEventListener('cancel',event=>{event.preventDefault();closePicker();});
   $('#pw-disconnect').addEventListener('click',()=>{if(!target)return;const destination={...target};closePicker();edit(()=>Object.assign(edgeAt(destination),blankEdge())&&undefined,'配線を外しました。');focusSink(destination);});
-  $('#pw-next').addEventListener('click',()=>{if(game.level===0)game.introDone=true;else if(!score(currentLevel(),currentBoard(),game.library).clear)return;if(game.level===levels.length-1)return;game.level++;target=null;notice='';render();save();$('#pw-title').scrollIntoView?.({block:'start',behavior:'instant'});});
-  $('#pw-level').addEventListener('change',()=>{const index=Number($('#pw-level').value);if(!unlocked(index))return;game.level=index;target=null;notice='';render();save();});
-  $('#pw-undo').addEventListener('click',()=>{const previous=history[currentLevel().id]?.pop();if(!previous)return;game.boards[currentLevel().id]=previous;notice='ひとつ前の配線に戻しました。';render();save();});
-  $('#pw-reset').addEventListener('click',()=>{edit(()=>freshBoard(currentLevel()),'この問題の最初の配線に戻しました。自己ベストは残ります。');});
+  $('#pw-next').addEventListener('click',()=>{if(game.level===0)game.introDone=true;else if(!score(currentLevel(),currentBoard(),game.library).clear)return;if(game.level===levels.length-1)return;game.level++;target=null;moveTarget=null;notice='';render();save();$('#pw-title').scrollIntoView?.({block:'start',behavior:'instant'});});
+  $('#pw-level').addEventListener('change',()=>{const index=Number($('#pw-level').value);if(!unlocked(index))return;game.level=index;target=null;moveTarget=null;notice='';render();save();});
+  $('#pw-undo').addEventListener('click',()=>{const previous=history[currentLevel().id]?.pop();if(!previous)return;game.boards[currentLevel().id]=previous;moveTarget=null;notice='ひとつ前の配線に戻しました。';render();save();});
+  $('#pw-reset').addEventListener('click',()=>{moveTarget=null;edit(()=>freshBoard(currentLevel()),'この問題の最初の配線に戻しました。自己ベストは残ります。');});
+  $('#pw-arrange').addEventListener('click',()=>{moveTarget=null;edit(board=>{delete board.layout;},'装置の配置を整えました。配線はそのままです。');});
+  $('#pw-move-done').addEventListener('click',()=>{const previous=moveTarget;moveTarget=null;refreshMoveControls();root.querySelector(`[data-move-gate="${previous}"]`)?.focus({preventScroll:true});});
   $('#pw-hint').addEventListener('click',()=>{hints[currentLevel().id]=(hints[currentLevel().id]||0)+1;showHint();});
   $('#pw-part').addEventListener('change',()=>{$('#pw-add').disabled=allocatedCost(currentBoard(),game.library)+partCost($('#pw-part').value,game.library)>currentLevel().budget;});
   $('#pw-add').addEventListener('click',()=>{const type=$('#pw-part').value;if(!allowedTypes(currentLevel(),game.library).includes(type)||allocatedCost(currentBoard(),game.library)+partCost(type,game.library)>currentLevel().budget)return;edit(board=>{board.gates.push(blankGate(type));},'装置を追加しました。空いている入力をつないでみよう。');});
   $('#pw-motion').addEventListener('click',()=>{game.motion=!game.motion;render();save();});
-  window.addEventListener('resize',scheduleWires);
-  window.addEventListener('storage',event=>{if(event.key!==SAVE_KEY)return;game=loadGame();migrateStartingBoards();Object.keys(history).forEach(key=>delete history[key]);render();});
-  if(typeof ResizeObserver!=='undefined')new ResizeObserver(scheduleWires).observe($('#pw-board'));
+  window.addEventListener('resize',()=>{if(drag)finishDrag({pointerId:drag.pointer},true);placeGates();refreshMoveControls();scheduleWires();});
+  root.addEventListener('toggle',event=>{if(event.target.classList?.contains('node-tools')&&!drag){placeGates();scheduleWires();}},true);
+  window.addEventListener('storage',event=>{if(event.key!==SAVE_KEY)return;if(drag)finishDrag({pointerId:drag.pointer},true);game=loadGame();moveTarget=null;migrateStartingBoards();Object.keys(history).forEach(key=>delete history[key]);render();});
+  if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{if(!drag&&Math.abs(($('#pw-gates').clientWidth||0)-layoutWidth)>.5)placeGates();scheduleWires();}).observe($('#pw-board'));
   render();
 })();
