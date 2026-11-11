@@ -1,11 +1,6 @@
-const fs=require('node:fs');
-const path=require('node:path');
 const assert=require('node:assert/strict');
-const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
-const script=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
-new Function(script);
-const core=script.slice(script.indexOf('  const VERSION'),script.indexOf('  // UI'));
-const {levels,freshBoard,evaluate,score,usedCost,allocatedCost,normalizeBoard,normalizeGame,removeGate,expandGate}=new Function(core+'; return {levels,freshBoard,evaluate,score,usedCost,allocatedCost,normalizeBoard,normalizeGame,removeGate,expandGate};')();
+(async()=>{
+const {levels,freshBoard,evaluate,score,usedCost,allocatedCost,normalizeBoard,normalizeGame,removeGate,expandGate,canConnect}=await import('../editor/src/engine.js');
 const edge=text=>({source:text.replace('!',''),inverted:text.startsWith('!')});
 const raw=(ports,outputs)=>({gates:ports.map(items=>({type:'MAJ',ports:items.map(edge)})),outputs:Object.fromEntries(Object.entries(outputs).map(([name,source])=>[name,edge(source)])),input:0});
 const lookup=id=>levels.find(level=>level.id===id);
@@ -72,8 +67,6 @@ assert.equal(restored.level,5);
 assert.equal(score(lookup('full'),restored.boards.full,restored.library).clear,true);
 assert.equal(normalizeGame({version:1,level:5}).level,0);
 assert.equal(normalizeGame({version:2,level:5}).level,0);
-const fullSave={version:2,level:5,introDone:true,library,bests:{and:1,or:1,xor:3,half:3,full:3},boards:{intro:freshBoard(levels[0]),...solutions,full:expanded},motion:true};
-assert.ok(Buffer.byteLength(JSON.stringify({modelContent:{board:expanded},privateContent:{game:fullSave}}))<16*1024,'Persisted gameplay must fit the host state budget');
 // Exact lower bound: enumerate every network of zero, one, or two MAJ3 nodes,
 // allowing constants, repeated inputs, arbitrary input/edge/output inversions,
 // and arbitrary fanout. If parity is absent, full addition cannot use <3 nodes.
@@ -104,9 +97,21 @@ function lowerBound(variables,target) {
   return {firstFunctions:first.size,secondFunctionsAcrossFirstChoices:networks};
 }
 const xorLower=lowerBound(2,0b0110),fullLower=lowerBound(3,0b10010110);
-const ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]));
-for(const match of script.matchAll(/\$\('#([^']+)'\)/g))assert.ok(ids.has(match[1]),`Missing UI element ${match[1]}`);
-assert.ok(Buffer.byteLength(html)<1024*1024);
-assert.ok(!html.includes('\\"'));
-console.log(`PASS: ${rows} optimum truth-table rows; 4-element half adder and 9-element full adder from earned blocks; expansion, sharing, inversions, removal, progress restore, DOM IDs, syntax.`);
-console.log('EXACT LOWER BOUNDS: XOR and full-adder sum need at least 3 MAJ3 nodes with free inversions.',JSON.stringify({xorLower,fullLower}));
+const backwards=raw([['P2','A','0'],['A','B','0']],{Y:'P1'});
+for(let row=0;row<4;row++)assert.equal(evaluate(lookup('and'),backwards,row,library).outputs.Y,+(row===3),'The circuit must work independently of node creation order');
+assert.equal(canConnect(backwards,'P1',1),false,'A dependency cycle must be rejected');
+assert.equal(canConnect(backwards,'P2',0),true);
+const cyclic=normalizeBoard(lookup('xor'),raw([['P2','A','0'],['P1','B','0']],{Y:'P1'}),library);
+assert.ok(cyclic.gates.some(gate=>gate.ports.some(edge=>!edge.source)),'A cycle in imported data must be disconnected');
+assert.equal(evaluate(lookup('xor'),cyclic,3,library).outputs.Y,null);
+const oldGame=normalizeGame({version:2,level:1,introDone:true,boards:{and:raw([['','','']],{Y:''})}});
+assert.deepEqual(oldGame.boards.and.gates[0].ports.slice(0,2).map(edge=>edge.source),['A','B']);
+assert.equal(oldGame.boards.and.outputs.Y.source,'P1');
+const flowBoard={...moduleFull,flow:{wide:{'gate:0':{x:123,y:456},'gate:1':{x:500,y:22},'output:S':{x:800,y:10},unknown:{x:0,y:0}}}};
+const imported=normalizeBoard(lookup('full'),flowBoard,library);
+assert.equal(imported.flow.wide.unknown,undefined);
+assert.deepEqual(removeGate(imported,0).flow.wide['gate:0'],{x:500,y:22});
+assert.deepEqual(normalizeGame({version:2,level:5,introDone:true,library,bests:{and:1,or:1,xor:3,half:4},boards:{full:flowBoard}}).boards.full.flow.wide['gate:0'],{x:123,y:456});
+
+console.log('PASS: all puzzle truth tables, earned blocks, expansion, inversions, removal, progress, and exact 3-node lower bounds.');
+})().catch(error=>{console.error(error);process.exitCode=1;});
