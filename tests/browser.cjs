@@ -11,6 +11,8 @@ let browser;
 (async () => {
   browser = await chromium.launch({ channel: "msedge", headless: true });
   const errors = [];
+  const clearedDialogs = new Set();
+  const minimumDialogs = new Set();
   let blueprintGame;
   async function open(width, game) {
     const context = await browser.newContext({
@@ -54,9 +56,114 @@ let browser;
     page.evaluate(() =>
       JSON.parse(localStorage.getItem("parametron-puzzle:v2")),
     );
+  async function reviewClear(page) {
+    const dialog = page.getByRole("dialog");
+    if (!(await dialog.isVisible())) return;
+    const game = await stored(page);
+    clearedDialogs.add(game.levelId);
+    assert.match(await dialog.locator("h2").textContent(), /クリア！/);
+    const optimal = (await dialog.locator("h2").textContent()).includes(
+      "理論最小",
+    );
+    if (optimal) minimumDialogs.add(game.levelId);
+    if (game.levelId === "half" && !optimal)
+      assert.ok(await dialog.getByText(/通常クリア達成/).isVisible());
+    assert.ok(
+      await dialog
+        .getByText("すべての入力で正しく動きました。", { exact: true })
+        .isVisible(),
+    );
+    if (["and", "or", "xor"].includes(game.levelId)) {
+      assert.ok(
+        game.library[game.levelId.toUpperCase()],
+        "A blueprint must be unlocked when its puzzle is cleared",
+      );
+      assert.ok(
+        await dialog
+          .getByRole("region", { name: "獲得したブループリント" })
+          .isVisible(),
+      );
+    }
+    const bounds = await dialog.boundingBox(),
+      viewport = page.viewportSize();
+    assert.ok(
+      bounds.x >= 0 &&
+        bounds.x + bounds.width <= viewport.width &&
+        bounds.y >= 0 &&
+        bounds.y + bounds.height <= viewport.height,
+      "Clear dialog must fit the viewport",
+    );
+    await page.screenshot({
+      path: path.join(
+        out,
+        "clear-" +
+          game.levelId +
+          (optimal ? "-minimum-" : "-") +
+          viewport.width +
+          ".png",
+      ),
+      fullPage: true,
+    });
+    if (game.levelId === "and" && viewport.width === 1280)
+      await page.keyboard.press("Escape");
+    else
+      await dialog
+        .getByRole("button", { name: "回路を見る", exact: true })
+        .click();
+    await dialog.waitFor({ state: "hidden" });
+  }
   async function fit(page) {
+    await reviewClear(page);
     await page.locator(".react-flow__controls-fitview").click();
     await page.waitForTimeout(70);
+  }
+  async function place(page, name = "MAJ") {
+    await reviewClear(page);
+    await page.waitForTimeout(100);
+    const positions = () =>
+      page.evaluate(() => ({
+        viewport: document.querySelector(".react-flow__viewport").style
+          .transform,
+        nodes: Object.fromEntries(
+          [...document.querySelectorAll(".react-flow__node")].map((node) => [
+            node.dataset.id,
+            node.style.transform,
+          ]),
+        ),
+      }));
+    const before = await positions();
+    const game = await stored(page),
+      count = game.boards[game.levelId].gates.length;
+    await page
+      .getByRole("combobox", { name: "配置する素子・ブループリント" })
+      .selectOption(name);
+    await page
+      .getByRole("button", {
+        name: name === "MAJ" ? "追加" : "設置",
+        exact: true,
+      })
+      .click();
+    await page.waitForFunction((count) => {
+      const game = JSON.parse(localStorage.getItem("parametron-puzzle:v2")),
+        board = game.boards[game.levelId];
+      return (
+        board.gates.length > count &&
+        !!board.flow?.blueprintWide?.["gate:" + (board.gates.length - 1)]
+      );
+    }, count);
+    await page.waitForTimeout(80);
+    const after = await positions();
+    assert.equal(
+      after.viewport,
+      before.viewport,
+      "Placing a part must not pan or zoom the canvas",
+    );
+    for (const [id, position] of Object.entries(before.nodes))
+      assert.equal(
+        after.nodes[id],
+        position,
+        "Placing a part must not move existing node " + id,
+      );
   }
   async function connect(page, source, target, touch = false) {
     await fit(page);
@@ -68,25 +175,7 @@ let browser;
       await page.locator(`[data-testid="target-${target}"]`).click();
     }
     await page.waitForTimeout(25);
-  }
-  async function details(page, name) {
-    await fit(page);
-    await page
-      .getByRole("button", { name: `${name}の詳細を開く`, exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: `${name}の詳細を畳む`, exact: true })
-      .waitFor();
-    await page.waitForTimeout(80);
-  }
-  async function collapse(page, name) {
-    await page
-      .getByRole("button", { name: `${name}の詳細を畳む`, exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: `${name}の詳細を開く`, exact: true })
-      .waitFor();
-    await fit(page);
+    await reviewClear(page);
   }
   async function wire(page, node, port, source) {
     await connect(page, source.replace("!", ""), `${node - 1}-${port - 1}`);
@@ -113,6 +202,7 @@ let browser;
       count,
       { timeout: 3000 },
     );
+    await reviewClear(page);
   }
   async function inTable(page, action) {
     const closed = !(await page.locator("#lesson-panel").count());
@@ -133,7 +223,7 @@ let browser;
     const level = levels.find((entry) => entry.id === snapshot.levelId);
     const board = snapshot.boards[level.id];
     const values = evaluate(level, board, board.input, snapshot.library).values;
-    const issues = await page.evaluate((values) => {
+    const issues = await page.evaluate(async (values) => {
       const errors = [];
       const game = JSON.parse(localStorage.getItem("parametron-puzzle:v2")),
         board = game.boards[game.levelId];
@@ -252,6 +342,62 @@ let browser;
             rail,
             "fill",
           );
+        }
+        // Rasterize the actual styled symbol to catch paint covering a wire,
+        // even when all path endpoints remain geometrically connected.
+        const svg = node.querySelector(".gate-symbol"),
+          clone = svg.cloneNode(true);
+        const originals = [svg, ...svg.querySelectorAll("*")],
+          copies = [clone, ...clone.querySelectorAll("*")];
+        originals.forEach((element, i) => {
+          const style = getComputedStyle(element);
+          copies[i].setAttribute(
+            "style",
+            ["fill", "stroke", "stroke-width", "stroke-linecap"]
+              .map(
+                (property) => property + ":" + style.getPropertyValue(property),
+              )
+              .join(";"),
+          );
+        });
+        clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        clone.setAttribute("width", "170");
+        clone.setAttribute("height", "124");
+        const picture = new Image();
+        picture.src =
+          "data:image/svg+xml," +
+          encodeURIComponent(new XMLSerializer().serializeToString(clone));
+        await picture.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = 170;
+        canvas.height = 124;
+        const context = canvas.getContext("2d");
+        context.drawImage(picture, 0, 0);
+        for (const [port, edge] of board.gates[index].ports.entries()) {
+          const raw = values[edge.source],
+            bit = raw === 0 || raw === 1 ? raw ^ Number(edge.inverted) : null;
+          const expected =
+            bit === 0
+              ? [39, 110, 175]
+              : bit === 1
+                ? [185, 119, 19]
+                : [146, 160, 176];
+          const pixel = [
+            ...context.getImageData(62, 24 + port * 32, 1, 1).data,
+          ];
+          if (
+            pixel[3] < 120 ||
+            expected.some(
+              (value, channel) => Math.abs(value - pixel[channel]) > 30,
+            )
+          )
+            errors.push({
+              name: "upper wire must remain visibly continuous at the collector join",
+              index,
+              port,
+              pixel,
+              expected,
+            });
         }
       }
       for (const node of document.querySelectorAll(
@@ -437,24 +583,10 @@ let browser;
       await page.keyboard.press("Enter");
       assert.equal((await stored(page)).boards.and.input, 0);
     });
-    const circuit = JSON.stringify((await stored(page)).boards.and.gates);
-    await details(page, "P1");
-    assert.equal(await page.locator('[data-presentation="detail"]').count(), 1);
-    if (width < 700)
-      assert.ok(
-        (await page.locator('[data-presentation="detail"]').boundingBox())
-          .width >= 230,
-        "Details should open at a readable scale",
-      );
-    await page.screenshot({
-      path: path.join(out, `detail-${width}.png`),
-      fullPage: true,
-    });
-    await collapse(page, "P1");
     assert.equal(
-      JSON.stringify((await stored(page)).boards.and.gates),
-      circuit,
-      "Presentation changes must preserve the circuit",
+      await page.getByRole("button", { name: /詳細/ }).count(),
+      0,
+      "There must be no detail mode controls",
     );
     if (width === 1280) {
       const point = await page
@@ -530,7 +662,12 @@ let browser;
       path: path.join(out, `and-${width}.png`),
       fullPage: true,
     });
-    await page.getByRole("button", { name: /次へ：OR/ }).click();
+    await page.getByRole("button", { name: "クリア結果", exact: true }).click();
+    await page.getByRole("dialog").waitFor();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: /次へ：OR/ })
+      .click();
     if (width === 1280) {
       await connect(page, "0", "0-2");
       await inTable(page, async (table) => {
@@ -548,7 +685,7 @@ let browser;
     await clear(page, 1);
     await page.getByRole("button", { name: /次へ：平行とねじり/ }).click();
     const twist = page.getByRole("switch", {
-      name: "P1の入力1を反転",
+      name: "P1の入力2を反転",
       exact: true,
     });
     assert.equal(await twist.getAttribute("aria-checked"), "false");
@@ -564,14 +701,14 @@ let browser;
     const beforeInput = (await stored(page)).boards.twist.input;
     if (width < 700) await inputA.tap();
     else await inputA.click();
-    assert.equal((await stored(page)).boards.twist.input, 1 - beforeInput);
+    assert.equal((await stored(page)).boards.twist.input, beforeInput ^ 2);
     await checkTerminals(page);
     if (width < 700) await inputA.tap();
     else await inputA.click();
     await checkTerminals(page);
     assert.equal(
       await page
-        .locator('.parametron-lead[data-port="0"] .wire-bridge')
+        .locator('.parametron-lead[data-port="1"] .wire-bridge')
         .count(),
       1,
     );
@@ -585,7 +722,7 @@ let browser;
     await checkTerminals(page);
     assert.equal(
       await page
-        .locator('.parametron-lead[data-port="0"] .wire-bridge')
+        .locator('.parametron-lead[data-port="1"] .wire-bridge')
         .count(),
       0,
     );
@@ -598,6 +735,29 @@ let browser;
     await clear(page, 1);
     if (width === 1280) {
       await page.getByRole("button", { name: /次へ：XOR/ }).click();
+      assert.equal((await stored(page)).boards.xor.gates.length, 0);
+      await page.screenshot({
+        path: path.join(out, "xor-empty.png"),
+        fullPage: true,
+      });
+      await place(page);
+      await page
+        .getByRole("button", { name: "P1を取り外す", exact: true })
+        .click();
+      assert.equal(
+        (await stored(page)).boards.xor.gates.length,
+        0,
+        "Compact nodes must have a delete button",
+      );
+      await place(page);
+      await page.locator(".react-flow__node-gate").click();
+      await page.keyboard.press("Delete");
+      assert.equal(
+        (await stored(page)).boards.xor.gates.length,
+        0,
+        "Selected nodes must also support Delete",
+      );
+      for (let i = 0; i < 3; i++) await place(page);
       assert.deepEqual(
         await page
           .getByRole("combobox", { name: "配置する素子・ブループリント" })
@@ -612,6 +772,7 @@ let browser;
       ].entries())
         for (const [j, source] of ports.entries())
           await wire(page, i + 1, j + 1, source);
+      await connect(page, "P3", "Y");
       await clear(page, 3);
       const inputInvert = page.getByRole("switch", {
         name: "P1の入力1を反転",
@@ -648,6 +809,17 @@ let browser;
         fullPage: true,
       });
       await page.getByRole("button", { name: /次へ：半加算器/ }).click();
+      assert.equal((await stored(page)).boards.half.gates.length, 0);
+      await page.screenshot({
+        path: path.join(out, "half-empty.png"),
+        fullPage: true,
+      });
+      for (const name of ["XOR", "AND"]) {
+        await page
+          .getByRole("combobox", { name: "配置する素子・ブループリント" })
+          .selectOption(name);
+        await place(page, name);
+      }
       const half = (await stored(page)).boards.half;
       assert.equal(half.gates.length, 4);
       assert.equal(
@@ -657,6 +829,8 @@ let browser;
       for (const [i, gate] of half.gates.entries())
         for (const [p, edge] of gate.ports.entries())
           if (edge.socket) await wire(page, i + 1, p + 1, edge.socket);
+      await connect(page, "P3", "S");
+      await connect(page, "P4", "C");
       await page.screenshot({
         path: path.join(out, "half-blueprints.png"),
         fullPage: true,
@@ -675,6 +849,40 @@ let browser;
           5,
           "One compact column per output",
         );
+      });
+      await connect(page, "P1", "C");
+      await clear(page, 3);
+      assert.ok(
+        minimumDialogs.has("half"),
+        "Improving a normal half-adder clear to three elements must show a distinct theoretical-minimum clear",
+      );
+      await fit(page);
+      await page
+        .getByRole("button", {
+          name:
+            half.blueprints.find((group) => group.name === "AND").id +
+            "の回路を取り外す",
+          exact: true,
+        })
+        .click();
+      assert.equal((await stored(page)).boards.half.gates.length, 3);
+      await page.getByRole("button", { name: /次へ：セレクター/ }).click();
+      assert.equal((await stored(page)).boards.mux.gates.length, 0);
+      for (let i = 0; i < 3; i++)
+        await page.getByRole("button", { name: "追加", exact: true }).click();
+      for (const [i, ports] of [
+        ["A", "!S", "0"],
+        ["B", "S", "0"],
+        ["P1", "P2", "1"],
+      ].entries())
+        for (const [j, source] of ports.entries())
+          await wire(page, i + 1, j + 1, source);
+      await connect(page, "P3", "Y");
+      await clear(page, 3);
+      await checkTerminals(page);
+      await page.screenshot({
+        path: path.join(out, "selector.png"),
+        fullPage: true,
       });
       await page.getByRole("button", { name: /次へ：全加算器/ }).click();
       const full = (await stored(page)).boards.full;
@@ -828,22 +1036,7 @@ let browser;
       assert.ok(stamp.gates.every((gate) => gate.type === "MAJ"));
       assert.equal(stamp.gates[2].ports[0].inverted, true);
       await page.locator('[data-presentation="blueprint"]').waitFor();
-      await page.waitForFunction(() => {
-        const frame = document
-          .querySelector(".flow-frame")
-          .getBoundingClientRect();
-        return [...document.querySelectorAll(".react-flow__node")].every(
-          (node) => {
-            const r = node.getBoundingClientRect();
-            return (
-              r.left >= frame.left - 1 &&
-              r.right <= frame.right + 1 &&
-              r.top >= frame.top - 1 &&
-              r.bottom <= frame.bottom + 1
-            );
-          },
-        );
-      });
+      await fit(page);
       await page.screenshot({
         path: path.join(out, "placed-blueprint.png"),
         fullPage: true,
@@ -962,15 +1155,6 @@ let browser;
         await mobile.page.locator('[data-presentation="detail"]').count(),
         0,
       );
-      await details(mobile.page, "P1");
-      assert.ok(
-        (
-          await mobile.page
-            .locator('[data-presentation="detail"]')
-            .boundingBox()
-        ).width >= 220,
-      );
-      await collapse(mobile.page, "P1");
       await mobile.page.screenshot({
         path: path.join(out, `blueprint-${width}.png`),
         fullPage: true,
@@ -979,6 +1163,11 @@ let browser;
     }
   }
   await browser.close();
+  assert.deepEqual(
+    [...clearedDialogs].sort(),
+    ["and", "full", "half", "mux", "or", "twist", "xor"],
+    "Every puzzle must present its clear dialog",
+  );
   assert.deepEqual(errors, []);
   console.log(
     "PASS: React Flow native drag/click/tap connections, node and keyboard movement, saved progress/positions, Dagre layout, raw parametron blueprint placement/ungrouping/removal, 9- and 3-element full adders, reversed creation order, cycle rejection, responsive pages.",

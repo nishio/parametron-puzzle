@@ -9,20 +9,27 @@ const solutions={
   or:raw([['A','B','1']],{Y:'P1'}),
   xor:raw([['A','B','0'],['A','B','1'],['!P1','P2','0']],{Y:'P3'}),
   half:raw([['A','B','0'],['A','B','1'],['!P1','P2','0']],{S:'P3',C:'P1'}),
-  full:raw([['A','B','Cin'],['A','B','!Cin'],['!P1','P2','Cin']],{S:'P3',Cout:'P1'})
+  full:raw([['A','B','Cin'],['A','B','!Cin'],['!P1','P2','Cin']],{S:'P3',Cout:'P1'}),
+  mux:raw([['A','!S','0'],['B','S','0'],['P1','P2','1']],{Y:'P3'})
 };
 const library={AND:solutions.and,OR:solutions.or,XOR:solutions.xor};
 assert.deepEqual(allowedTypes(lookup('xor'),{AND:library.AND,OR:library.OR}),['MAJ','AND','OR'],'Earned AND/OR blueprints must already be available in the XOR puzzle');
 const {materializeBoard,placeBlueprint,ungroupBlueprint}=await import('../editor/src/blueprints.js');
 const twistLesson=freshBoard(lookup('twist'));
 assert.equal(score(lookup('twist'),twistLesson,library).clear,false);
-twistLesson.gates[0].ports[0].inverted=true;
-assert.equal(evaluate(lookup('twist'),twistLesson,0,library).outputs.Y,1);
-assert.equal(evaluate(lookup('twist'),twistLesson,1,library).outputs.Y,0);
+twistLesson.gates[0].ports[1].inverted=true;
+assert.deepEqual([0,1,2,3].map(row=>evaluate(lookup('twist'),twistLesson,row,library).outputs.Y),[0,0,1,0]);
 assert.equal(score(lookup('twist'),twistLesson,library).clear,true);
 const tutorialSave=normalizeGame({version:2,level:6,levelId:'twist',introDone:true,library,bests:{and:1,or:1},boards:{twist:twistLesson}});
 assert.equal(tutorialSave.level,3,'Chapter IDs must take precedence over old numeric positions');
-assert.equal(tutorialSave.boards.twist.gates[0].ports[0].inverted,true);
+assert.equal(tutorialSave.boards.twist.gates[0].ports[1].inverted,true);
+const oldTwist=normalizeBoard(lookup('twist'),raw([['!A','0','1']],{Y:'P1'}),library);
+assert.equal(score(lookup('twist'),oldTwist,library).clear,true,'Previous NOT lesson progress must migrate to the new two-input lesson');
+for (const id of ['xor','half','mux']) {
+  const empty=freshBoard(lookup(id),library);
+  assert.equal(empty.gates.length,0,'Challenges must start without placed elements');
+  assert.ok(Object.values(empty.outputs).every(port=>port.source===''));
+}
 let rows=0;
 for(const [id,board] of Object.entries(solutions)) {
   const level=lookup(id),result=score(level,board,library);
@@ -74,7 +81,7 @@ const intro=freshBoard(levels[0]);
 assert.equal(evaluate(levels[0],intro,6,library).outputs.Y,1);
 assert.equal(evaluate(levels[0],intro,1,library).outputs.Y,0);
 const restored=normalizeGame({version:2,level:5,introDone:true,library,bests:{and:1,or:1,xor:3,half:4},boards:{full:moduleFull}});
-assert.equal(restored.level,6);
+assert.equal(restored.level,7);
 assert.equal(restored.levelId,'full');
 assert.equal(restored.bests.twist,1,'Existing advanced progress must survive insertion of a new tutorial');
 assert.equal(score(lookup('full'),restored.boards.full,restored.library).clear,true);
@@ -109,7 +116,7 @@ function lowerBound(variables,target) {
   }
   return {firstFunctions:first.size,secondFunctionsAcrossFirstChoices:networks};
 }
-const xorLower=lowerBound(2,0b0110),fullLower=lowerBound(3,0b10010110);
+const xorLower=lowerBound(2,0b0110),fullLower=lowerBound(3,0b10010110),muxLower=lowerBound(3,0b10101100);
 const backwards=raw([['P2','A','0'],['A','B','0']],{Y:'P1'});
 for(let row=0;row<4;row++)assert.equal(evaluate(lookup('and'),backwards,row,library).outputs.Y,+(row===3),'The circuit must work independently of node creation order');
 assert.equal(canConnect(backwards,'P1',1),false,'A dependency cycle must be rejected');

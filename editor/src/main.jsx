@@ -38,8 +38,9 @@ import {
 import { lessons } from "./lessons.js";
 import { WiringGlyph, WiringToggle } from "./WiringToggle.jsx";
 import { nodeTypes, color } from "./nodes.jsx";
-import { autoArrange } from "./layout.js";
+import { autoArrange, preservePlacement } from "./layout.js";
 import { edgeTypes } from "./PairEdge.jsx";
+import { ClearDialog } from "./ClearDialog.jsx";
 import {
   isFixedInput,
   placeBlueprint,
@@ -47,6 +48,11 @@ import {
 } from "./blueprints.js";
 
 const SAVE_KEY = "parametron-puzzle:v2";
+const tutorialCount = levels.findIndex((level) => level.id === "xor");
+const chapterLabel = (index) =>
+  index < tutorialCount
+    ? `チュートリアル ${index + 1} / ${tutorialCount}`
+    : `チャレンジ ${index - tutorialCount + 1} / ${levels.length - tutorialCount}`;
 const VIEW_PADDING = {
   top: "68px",
   right: "24px",
@@ -77,12 +83,14 @@ function App() {
     [selectedEdge, setSelectedEdge] = useState(null),
     [part, setPart] = useState("MAJ"),
     [sideOpen, setSideOpen] = useState(innerWidth >= 900),
-    [detailNode, setDetailNode] = useState(null);
+    [clearDialog, setClearDialog] = useState(null);
+  const announcedClears = useRef(new Set(Object.keys(game.bests)));
   const [nodes, setNodes, onNodesChange] = useNodesState([]),
     [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const flow = useReactFlow(),
     initialized = useNodesInitialized(),
     fitNeeded = useRef(true),
+    placementSaveNeeded = useRef(false),
     lastStage = useRef(""),
     positionFrame = useRef(null);
   const level = levels[game.level],
@@ -98,9 +106,16 @@ function App() {
         next.boards[l.id] || (next.boards[l.id] = freshBoard(l, next.library));
     const check = score(l, b, next.library);
     if (!l.demo && check.clear) {
+      const newUnlock = !!l.reward && !next.library[l.reward];
+      const newMinimum =
+        check.cost === l.minimum && (next.bests[l.id] ?? Infinity) > l.minimum;
       next.bests[l.id] = Math.min(next.bests[l.id] ?? Infinity, check.cost);
       if (l.reward && !next.library[l.reward])
         next.library[l.reward] = clone(b);
+      if (!announcedClears.current.has(l.id) || newMinimum) {
+        announcedClears.current.add(l.id);
+        setClearDialog(completionFor(l, next.level, check.cost, newUnlock));
+      }
     }
     gameRef.current = next;
     setGame(next);
@@ -110,6 +125,29 @@ function App() {
     } catch {
       setStorageOk(false);
     }
+  }
+  function completionFor(l, index, cost, newUnlock = false) {
+    return {
+      index,
+      name: lessons[l.id].short,
+      cost,
+      minimum: l.minimum,
+      advanced: !l.demo && index >= tutorialCount,
+      chapter: chapterLabel(index),
+      isLast: index === levels.length - 1,
+      reward: l.reward,
+      newUnlock,
+    };
+  }
+  function advance() {
+    setClearDialog(null);
+    const next = clone(gameRef.current);
+    if (levels[next.level].demo) next.introDone = true;
+    next.level++;
+    install(next);
+    setPart("MAJ");
+    setMessage("");
+    setSelectedEdge(null);
   }
   function commit(mutator, text = "", remember = true) {
     const previous = gameRef.current,
@@ -200,7 +238,6 @@ function App() {
     }
   };
   const savePositions = () => {
-    if (detailNode) return;
     const positions = Object.fromEntries(
       flow.getNodes().map((node) => [node.id, { ...node.position }]),
     );
@@ -235,8 +272,6 @@ function App() {
       position: { x: 0, y: 0 },
       data: {
         name,
-        detail: detailNode === "input:" + name,
-        onDetail: () => setDetailNode(null),
         value: v.values[name],
         demo: l.demo || l.lockedWiring,
         toggle: () =>
@@ -272,16 +307,12 @@ function App() {
         data: {
           group,
           ungroup: () => {
-            setDetailNode(null);
-            fitNeeded.current = true;
             commit(
               (board) => ungroupBlueprint(board, group.id),
               "設計図の枠を外しました。パラメトロンと配線は残ります。",
             );
           },
           remove: () => {
-            setDetailNode(null);
-            fitNeeded.current = true;
             commit(
               (board) => removeBlueprint(board, group.id),
               "ブループリントの回路を取り外しました。",
@@ -303,17 +334,13 @@ function App() {
         data: {
           gate,
           index,
-          detail: detailNode === "gate:" + index,
-          onDetail: () =>
-            setDetailNode((current) =>
-              current === "gate:" + index ? null : "gate:" + index,
-            ),
           cost: partCost(gate.type, game.library),
           values: v.values,
           value: v.values["P" + (index + 1)],
           demo: l.demo || l.lockedWiring,
           invert: l.invert,
           tutorial: l.tutorial,
+          tutorialPort: l.tutorialPort,
           editable: !!l.editable,
           toggle: (port) =>
             commit((board) => {
@@ -321,8 +348,6 @@ function App() {
                 !board.gates[index].ports[port].inverted;
             }),
           remove: () => {
-            setDetailNode(null);
-            fitNeeded.current = true;
             commit((board) => removeGate(board, index));
           },
         },
@@ -336,11 +361,6 @@ function App() {
         position: { x: 0, y: 0 },
         data: {
           name,
-          detail: detailNode === "output:" + name,
-          onDetail: () =>
-            setDetailNode((current) =>
-              current === "output:" + name ? null : "output:" + name,
-            ),
           value: v.outputs[name],
           inputValue: v.values[b.outputs[name].source],
           expected: expected[name],
@@ -383,36 +403,26 @@ function App() {
     );
     l.outputs.forEach((name) => add(b.outputs[name], "output:" + name, "in"));
     const arranged = autoArrange(nextNodes, nextEdges);
+    const frame = document
+      .querySelector(".flow-frame")
+      ?.getBoundingClientRect();
+    const center = frame
+      ? flow.screenToFlowPosition({
+          x: frame.left + frame.width / 2,
+          y: frame.top + frame.height / 2,
+        })
+      : { x: 400, y: 250 };
     setNodes((previous) => {
       const existing = new Map(previous.map((node) => [node.id, node]));
-      const detailChanged = nextNodes.some(
-        (node) => !!existing.get(node.id)?.data.detail !== !!node.data.detail,
-      );
-      const structural =
-        changed ||
-        detailChanged ||
-        previous.length !== nextNodes.length ||
-        nextNodes.some(
-          (node) => existing.get(node.id)?.parentId !== node.parentId,
-        ) ||
-        nextNodes.some(
-          (node) =>
-            node.type === "gate" &&
-            existing.has(node.id) &&
-            existing.get(node.id).data.gate.type !== node.data.gate.type,
-        );
-      if (structural) fitNeeded.current = true;
-      return arranged.map((node) => ({
+      if (changed) fitNeeded.current = true;
+      const placed = changed
+        ? arranged.map((node) => ({
+            ...node,
+            position: b.flow?.[mode]?.[node.id] || node.position,
+          }))
+        : preservePlacement(arranged, previous, center, b.flow?.[mode]);
+      return placed.map((node) => ({
         ...node,
-        position:
-          ((!structural ||
-            changed ||
-            (detailChanged && previous.length === nextNodes.length)) &&
-            !detailNode &&
-            b.flow?.[mode]?.[node.id]) ||
-          (!structural && existing.has(node.id)
-            ? existing.get(node.id).position
-            : node.position),
         selected: !changed && existing.get(node.id)?.selected,
       }));
     });
@@ -423,7 +433,22 @@ function App() {
           previous.find((item) => item.id === edge.id)?.selected || false,
       })),
     );
-  }, [game, mode, mobile, detailNode]);
+  }, [game, mode, mobile]);
+  useEffect(() => {
+    if (initialized && placementSaveNeeded.current) {
+      placementSaveNeeded.current = false;
+      const positions = Object.fromEntries(
+        nodes.map((node) => [node.id, { ...node.position }]),
+      );
+      commit(
+        (b) => {
+          b.flow = { ...b.flow, [mode]: positions };
+        },
+        "",
+        false,
+      );
+    }
+  }, [initialized, nodes]);
   useEffect(() => {
     if (initialized && fitNeeded.current) {
       fitNeeded.current = false;
@@ -432,16 +457,15 @@ function App() {
       requestAnimationFrame(() =>
         requestAnimationFrame(() =>
           flow.fitView({
-            nodes: detailNode ? [{ id: detailNode }] : undefined,
             padding: VIEW_PADDING,
-            minZoom: detailNode ? 0.85 : 0.2,
-            maxZoom: detailNode ? 1.1 : 1,
+            minZoom: 0.2,
+            maxZoom: 1,
             duration: 0,
           }),
         ),
       );
     }
-  }, [initialized, nodes, flow, detailNode]);
+  }, [initialized, nodes, flow]);
   useEffect(() => {
     const timer = setTimeout(
       () => flow.fitView({ padding: VIEW_PADDING, maxZoom: 1, duration: 150 }),
@@ -453,7 +477,6 @@ function App() {
     const arranged = autoArrange(flow.getNodes(), flow.getEdges());
     setNodes(arranged);
     fitNeeded.current = true;
-    if (detailNode) return;
     commit((b) => {
       b.flow = {
         ...b.flow,
@@ -464,17 +487,16 @@ function App() {
     }, "Dagreで配置を整えました。");
   }
   function changeLevel(index) {
+    setClearDialog(null);
     const next = clone(gameRef.current);
     next.level = index;
     install(next);
     setMessage("");
     setSelectedEdge(null);
     setPart("MAJ");
-    setDetailNode(null);
   }
   function deleteElements({ nodes: deletedNodes, edges: deletedEdges }) {
     if (level.demo || level.lockedWiring) return;
-    if (deletedNodes.length) setDetailNode(null);
     commit((b) => {
       for (const edge of deletedEdges) {
         const t = destination(edge);
@@ -515,7 +537,7 @@ function App() {
     : level.tutorial
       ? result.clear
         ? "ねじると0と1が入れ替わりました。もう一度押すと平行に戻ります。"
-        : "P1のAの横にある2本線を押して、平行からねじりにしよう。"
+        : "P1のBの横にある2本線を押して、A=1・B=0のときだけ1にしよう。"
       : result.clear
         ? "クリア！ すべての入力で正しく動きました。"
         : empty
@@ -552,11 +574,7 @@ function App() {
           </span>
         </a>
         <div className="lesson-navigation">
-          <span>
-            {level.demo
-              ? "はじめに"
-              : `CHAPTER ${game.level} / ${levels.length - 1}`}
-          </span>
+          <span>{chapterLabel(game.level)}</span>
           <label>
             問題{" "}
             <select
@@ -571,7 +589,10 @@ function App() {
                   disabled={
                     i === 1
                       ? !game.introDone
-                      : i > 1 && game.bests[levels[i - 1].id] === undefined
+                      : i > 1 &&
+                        game.bests[
+                          l.id === "full" ? "half" : levels[i - 1].id
+                        ] === undefined
                   }
                 >
                   {lessons[l.id].short}
@@ -743,7 +764,7 @@ function App() {
             </section>
 
             <p className="flow-help">
-              丸い端子を出力→入力の順に押すか、ドラッグして接続。素子をつかんで移動、背景でスクロール。端子のそばの2本線を押すと、平行とねじりを切り替えます。ねじると0と1が入れ替わります。「詳細」で大きく表示できます。ブループリントは保存した回路をまとめて設置する設計図です。
+              丸い端子を出力→入力の順に押すか、ドラッグして接続。素子をつかんで移動、背景でスクロール。端子のそばの2本線を押すと、平行とねじりを切り替えます。ねじると0と1が入れ替わります。素子の×、または選択してDeleteで削除できます。ブループリントは保存した回路をまとめて設置する設計図です。
             </p>
 
             <footer>
@@ -768,7 +789,6 @@ function App() {
                   onClick={() => {
                     const previous = undo.current[level.id]?.pop();
                     if (previous) {
-                      setDetailNode(null);
                       const next = clone(gameRef.current);
                       next.boards[level.id] = previous;
                       install(next);
@@ -780,7 +800,7 @@ function App() {
                 </button>
                 <button
                   onClick={() => {
-                    setDetailNode(null);
+                    announcedClears.current.delete(level.id);
                     fitNeeded.current = true;
                     commit(
                       () => freshBoard(level, gameRef.current.library),
@@ -816,8 +836,7 @@ function App() {
                     level.budget
                   }
                   onClick={() => {
-                    setDetailNode(null);
-                    fitNeeded.current = true;
+                    placementSaveNeeded.current = true;
                     commit((b) => {
                       if (!allowedTypes(level, game.library).includes(part))
                         return;
@@ -867,12 +886,6 @@ function App() {
                 onEdgeClick={(_, edge) => setSelectedEdge(edge.id)}
                 onNodeClick={() => setSelectedEdge(null)}
                 onPaneClick={() => setSelectedEdge(null)}
-                onNodeDoubleClick={(_, node) => {
-                  if (node.type === "gate" || node.type === "answer")
-                    setDetailNode((current) =>
-                      current === node.id ? null : node.id,
-                    );
-                }}
                 connectOnClick
                 connectionLineType={ConnectionLineType.Bezier}
                 snapToGrid
@@ -905,11 +918,6 @@ function App() {
                   <span>端子から接続</span>
                 </Panel>
                 <Panel position="top-right">
-                  {detailNode && (
-                    <button onClick={() => setDetailNode(null)}>
-                      すべて畳む
-                    </button>
-                  )}
                   <button onClick={arrange} disabled={level.demo}>
                     配置を整える
                   </button>
@@ -977,23 +985,24 @@ function App() {
               {level.demo
                 ? `1が${level.inputs.reduce((sum, name) => sum + observed.values[name], 0)}票 → 出力${observed.outputs.Y}`
                 : result.clear
-                  ? `クリア！ 使用${result.cost}個 / 自己ベスト${game.bests[level.id] ?? result.cost}個${result.cost === level.minimum ? " · 最少達成" : ""}`
+                  ? `クリア！ 使用${result.cost}個 / 自己ベスト${game.bests[level.id] ?? result.cost}個${result.cost === level.minimum ? " · 理論最小クリア" : ""}`
                   : `${result.total}通り中${result.matched}通りが正解`}
             </p>
+            {!level.demo && result.clear && (
+              <button
+                className="clear-result-button"
+                onClick={() =>
+                  setClearDialog(completionFor(level, game.level, result.cost))
+                }
+              >
+                クリア結果
+              </button>
+            )}
             {game.level < levels.length - 1 && (
               <button
                 className="primary"
                 disabled={!level.demo && !result.clear}
-                onClick={() => {
-                  const next = clone(gameRef.current);
-                  if (level.demo) next.introDone = true;
-                  next.level++;
-                  install(next);
-                  setPart("MAJ");
-                  setDetailNode(null);
-                  setMessage("");
-                  setSelectedEdge(null);
-                }}
+                onClick={advance}
               >
                 次へ：{lessons[levels[game.level + 1].id].short} →
               </button>
@@ -1001,6 +1010,18 @@ function App() {
           </div>
         </div>
       </main>
+      {clearDialog && (
+        <ClearDialog
+          completion={clearDialog}
+          nextName={
+            clearDialog.index < levels.length - 1
+              ? lessons[levels[clearDialog.index + 1].id].short
+              : null
+          }
+          onClose={() => setClearDialog(null)}
+          onNext={advance}
+        />
+      )}
     </div>
   );
 }

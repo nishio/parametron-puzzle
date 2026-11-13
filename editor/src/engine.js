@@ -43,14 +43,15 @@ const levels = [
   {
     id: "twist",
     name: "03 · 平行とねじり",
-    inputs: ["A"],
+    inputs: ["A", "B"],
     outputs: ["Y"],
     budget: 1,
     minimum: 1,
     invert: true,
     tutorial: true,
+    tutorialPort: 1,
     lockedWiring: true,
-    target: ([a]) => ({ Y: 1 - a }),
+    target: ([a, b]) => ({ Y: a & (1 - b) }),
   },
   {
     id: "xor",
@@ -84,8 +85,21 @@ const levels = [
     target: ([a, b]) => ({ S: (a + b) % 2, C: +(a + b >= 2) }),
   },
   {
+    id: "mux",
+    name: "06 · セレクター / 3素子以内",
+    inputs: ["S", "A", "B"],
+    outputs: ["Y"],
+    budget: 3,
+    minimum: 3,
+    parts: true,
+    editable: true,
+    invert: true,
+    title: "信号を選ぶセレクターを作ろう",
+    target: ([s, a, b]) => ({ Y: s ? b : a }),
+  },
+  {
     id: "full",
-    name: "06 · 全加算器 / 9素子以内",
+    name: "07 · 全加算器 / 9素子以内",
     inputs: ["A", "B", "Cin"],
     outputs: ["S", "Cout"],
     budget: 9,
@@ -107,14 +121,11 @@ const blankGate = (type = "MAJ") => ({
   ports: Array.from({ length: arity(type) }, blankEdge),
 });
 const freshBoard = (level, library = {}) => {
-  const types =
-    level.id === "xor"
-      ? ["MAJ", "MAJ", "MAJ"]
-      : level.id === "half"
-        ? ["XOR", "AND"]
-        : level.id === "full"
-          ? ["XOR", "XOR", "AND", "AND", "OR"]
-          : ["MAJ"];
+  const types = ["xor", "half", "mux"].includes(level.id)
+    ? []
+    : level.id === "full"
+      ? ["XOR", "XOR", "AND", "AND", "OR"]
+      : ["MAJ"];
   const board = {
     gates: types.map(blankGate),
     outputs: Object.fromEntries(
@@ -135,17 +146,14 @@ const freshBoard = (level, library = {}) => {
     board.gates[0].ports[1] = { source: "B", inverted: false };
     board.outputs.Y = { source: "P1", inverted: false };
   }
-  if (level.id === "xor") board.outputs.Y = { source: "P3", inverted: false };
   if (level.id === "twist") {
-    board.gates[0].ports = ["A", "0", "1"].map((source) => ({
+    board.gates[0].ports = ["A", "B", "0"].map((source) => ({
       source,
       inverted: false,
+      ...(source === "0" ? { fixed: true } : {}),
     }));
     board.outputs.Y = { source: "P1", inverted: false };
-  }
-  if (level.id === "half") {
-    board.outputs.S = { source: "P1", inverted: false };
-    board.outputs.C = { source: "P2", inverted: false };
+    board.input = 3;
   }
   if (level.id === "full") {
     board.outputs.S = { source: "P2", inverted: false };
@@ -288,6 +296,17 @@ function allowedTypes(level, library) {
   ];
 }
 function normalizeBoard(level, candidate, library = {}) {
+  if (level.id === "twist") {
+    const board = freshBoard(level);
+    if (Number.isInteger(candidate?.input))
+      board.input = Math.max(0, Math.min(3, candidate.input));
+    const ports = candidate?.gates?.[0]?.ports;
+    board.gates[0].ports[1].inverted =
+      ports?.[1]?.source === "B"
+        ? ports[1].inverted === true
+        : ports?.[0]?.inverted === true;
+    return board;
+  }
   if (level.demo) {
     const board = freshBoard(level, library);
     if (Number.isInteger(candidate?.input))
@@ -622,7 +641,9 @@ function normalizeGame(candidate) {
     index === 0 ||
     (index === 1
       ? game.introDone
-      : game.bests[levels[index - 1].id] !== undefined);
+      : game.bests[
+          levels[index].id === "full" ? "half" : levels[index - 1].id
+        ] !== undefined);
   if (savedIndex >= 0 && unlocked(savedIndex)) game.level = savedIndex;
   game.levelId = levels[game.level].id;
   return game;

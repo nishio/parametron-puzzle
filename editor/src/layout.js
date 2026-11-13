@@ -1,6 +1,82 @@
 import dagre from "@dagrejs/dagre";
 import { nodeSize } from "./nodes.jsx";
 
+// Keep the workspace still. Only newly placed root nodes need a free position.
+export function preservePlacement(nodes, previous, center, saved = {}) {
+  const old = new Map(previous.map((node) => [node.id, node]));
+  const placed = new Map();
+  const absolute = (node) => {
+    const parent = old.get(node.parentId);
+    const offset = parent ? absolute(parent) : { x: 0, y: 0 };
+    return { x: node.position.x + offset.x, y: node.position.y + offset.y };
+  };
+  for (const node of nodes) {
+    const prior = old.get(node.id);
+    if (!prior) {
+      if (saved[node.id])
+        placed.set(node.id, { ...node, position: saved[node.id] });
+      continue;
+    }
+    let position = saved[node.id];
+    if (!position && prior.parentId === node.parentId)
+      position = prior.position;
+    if (!position) {
+      const point = absolute(prior),
+        parent = placed.get(node.parentId);
+      position = {
+        x: point.x - (parent?.position.x || 0),
+        y: point.y - (parent?.position.y || 0),
+      };
+    }
+    placed.set(node.id, {
+      ...node,
+      position,
+      ...(node.type === "blueprint"
+        ? {
+            style: prior.style,
+            data: {
+              ...node.data,
+              width: prior.data.width,
+              height: prior.data.height,
+            },
+          }
+        : {}),
+    });
+  }
+  const overlaps = (node, position) => {
+    const size = nodeSize(node);
+    return [...placed.values()]
+      .filter((other) => !other.parentId)
+      .some((other) => {
+        const otherSize = nodeSize(other),
+          p = other.position;
+        return (
+          position.x < p.x + otherSize.width + 24 &&
+          position.x + size.width + 24 > p.x &&
+          position.y < p.y + otherSize.height + 24 &&
+          position.y + size.height + 24 > p.y
+        );
+      });
+  };
+  for (const node of nodes.filter(
+    (node) => !node.parentId && !placed.has(node.id),
+  )) {
+    const size = nodeSize(node),
+      origin = { x: center.x - size.width / 2, y: center.y - size.height / 2 };
+    let position = origin;
+    search: for (let ring = 0; ring < 80; ring++) {
+      for (let y = -ring; y <= ring; y++)
+        for (let x = -ring; x <= ring; x++) {
+          if (Math.max(Math.abs(x), Math.abs(y)) !== ring) continue;
+          position = { x: origin.x + x * 48, y: origin.y + y * 48 };
+          if (!overlaps(node, position)) break search;
+        }
+    }
+    placed.set(node.id, { ...node, position });
+  }
+  return nodes.map((node) => placed.get(node.id) || node);
+}
+
 function layoutGraph(nodes, edges, marginx = 30, marginy = 30) {
   const graph = new dagre.graphlib.Graph();
   graph.setDefaultEdgeLabel(() => ({}));
@@ -119,6 +195,17 @@ export function autoArrange(nodes, edges) {
       node.position = { x, y };
       y += nodeSize(node).height + 40;
     });
+    if (!gates.length) {
+      const answers = arranged.filter((node) => node.type === "answer");
+      const answerHeight =
+        answers.reduce((sum, node) => sum + nodeSize(node).height, 0) +
+        Math.max(0, answers.length - 1) * 40;
+      let answerY = (top + bottom - answerHeight) / 2;
+      answers.forEach((node) => {
+        node.position = { x: x + 720, y: answerY };
+        answerY += nodeSize(node).height + 40;
+      });
+    }
   }
   // React Flow requires parents before their children for native subflows.
   return [...arranged, ...children];

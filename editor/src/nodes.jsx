@@ -16,19 +16,7 @@ function usePorts(data) {
     update = useUpdateNodeInternals();
   useLayoutEffect(() => {
     update(id);
-  }, [id, data.detail, data.gate?.ports.length, update]);
-}
-function DetailButton({ data, name }) {
-  return (
-    <button
-      className="detail-toggle nodrag nopan"
-      aria-label={`${name}の${data.detail ? "詳細を畳む" : "詳細を開く"}`}
-      aria-expanded={data.detail}
-      onClick={data.onDetail}
-    >
-      {data.detail ? "畳む −" : "詳細 ＋"}
-    </button>
-  );
+  }, [id, data.gate?.ports.length, update]);
 }
 function Source({ data, name, top, id = "out" }) {
   return (
@@ -48,23 +36,18 @@ function SignalNode({ data }) {
   usePorts(data);
   return (
     <div
-      className={`graph-node signal-node${data.detail ? "" : " compact-signal"}`}
+      className="graph-node signal-node compact-signal"
       data-value={data.value}
     >
-      <header className="node-title">
-        {data.detail ? "入力 " : ""}
-        {data.name}
-        {data.detail && <DetailButton data={data} name={data.name} />}
-      </header>
+      <header className="node-title">{data.name}</header>
       <button
         className="signal-switch nodrag nopan"
         onClick={data.toggle}
         aria-label={`入力${data.name}を切り替える`}
       >
         <strong style={{ color: color(data.value) }}>{data.value}</strong>
-        {data.detail && <small>押して0 / 1を切替</small>}
       </button>
-      <Source data={data} name={data.name} top={data.detail ? "50%" : 24} />
+      <Source data={data} name={data.name} top={24} />
     </div>
   );
 }
@@ -210,172 +193,107 @@ function ParametronSymbol({ value, gate, values, canTwist }) {
 function GateNode({ data }) {
   usePorts(data);
   const name = "P" + (data.index + 1);
-  const canTwist = (port) => data.invert && (!data.tutorial || port === 0);
+  const canTwist = (port) =>
+    data.invert && (!data.tutorial || port === data.tutorialPort);
   const label = (port) => name + "の入力" + (port + 1) + "を反転";
-  if (!data.detail)
-    return (
-      <div className="graph-node compact-gate" data-presentation="symbol">
-        <header className="node-title">
-          <strong>{name}</strong>
-          <span>パラメトロン</span>
-          <DetailButton data={data} name={name} />
-        </header>
-        <ParametronSymbol
-          value={data.value}
-          gate={data.gate}
-          values={data.values}
-          canTwist={canTwist}
-        />
-        {data.gate.ports.map((edge, port) => {
-          const top = 58 + port * 32;
-          return (
-            <React.Fragment key={port}>
-              <Handle
-                type="target"
-                position={Position.Left}
-                id={String(port)}
-                value={data.values[edge.source]}
-                style={{
-                  top,
-                  background: edge.inverted
-                    ? "#fff"
-                    : color(readEdge(edge, data.values)),
-                }}
-                className={edge.inverted ? "inverted-port" : ""}
-                isConnectable={!data.demo}
-                aria-label={name + "の入力" + (port + 1)}
-                data-testid={"target-" + data.index + "-" + port}
-              />
-              {canTwist(port) ? (
-                <>
-                  <span
-                    className="pin-label wire-source-label"
-                    style={{ top: top - 26 }}
-                  >
-                    {isFixedInput(edge)
-                      ? "固定" + edge.source
-                      : edge.source || edge.socket || String(port + 1)}
-                  </span>
-                  <WiringToggle
-                    className={
-                      "pin-invert" + (data.tutorial ? " tutorial-toggle" : "")
-                    }
-                    style={{ top: top - 14 }}
-                    inverted={edge.inverted}
-                    hideGlyph
-                    label={label(port)}
-                    onToggle={() => data.toggle(port)}
-                  />
-                </>
-              ) : (
-                <span
-                  className={"pin-label" + (edge.source ? "" : " empty")}
-                  style={{ top: top - 24 }}
-                >
-                  {edge.inverted ? "¬" : ""}
-                  {isFixedInput(edge)
-                    ? "固定" + edge.source
-                    : edge.source ||
-                      (edge.socket
-                        ? edge.socket + " 未接続"
-                        : "入力" + (port + 1))}
-                </span>
-              )}
-            </React.Fragment>
-          );
-        })}
-        <Source data={data} name={name} top={90} />
-      </div>
-    );
   return (
-    <div className="graph-node gate-node" data-presentation="detail">
+    <div className="graph-node compact-gate" data-presentation="symbol">
       <header className="node-title">
         <strong>{name}</strong>
-        <span>パラメトロン · 1個</span>
-        <DetailButton data={data} name={name} />
+        <span>パラメトロン</span>
+        {data.editable && (
+          <button
+            className="node-remove nodrag nopan"
+            aria-label={name + "を取り外す"}
+            title="素子を削除"
+            onClick={data.remove}
+          >
+            ×
+          </button>
+        )}
       </header>
-      <div className="gate-ports">
-        {data.gate.ports.map((edge, port) => (
-          <div className="gate-port" key={port}>
+      <ParametronSymbol
+        value={data.value}
+        gate={data.gate}
+        values={data.values}
+        canTwist={canTwist}
+      />
+      {data.gate.ports.map((edge, port) => {
+        const top = 58 + port * 32;
+        return (
+          <React.Fragment key={port}>
             <Handle
               type="target"
               position={Position.Left}
               id={String(port)}
               value={data.values[edge.source]}
-              style={{ top: 66 + port * 46 }}
+              style={{
+                top,
+                background: edge.inverted
+                  ? "#fff"
+                  : color(readEdge(edge, data.values)),
+              }}
+              className={edge.inverted ? "inverted-port" : ""}
               isConnectable={!data.demo}
               aria-label={name + "の入力" + (port + 1)}
               data-testid={"target-" + data.index + "-" + port}
             />
-            <span>
-              <small>入力{port + 1}</small>
-              <b>
+            {canTwist(port) ? (
+              <>
+                <span
+                  className="pin-label wire-source-label"
+                  style={{ top: top - 26 }}
+                >
+                  {isFixedInput(edge)
+                    ? "固定" + edge.source
+                    : edge.source || edge.socket || String(port + 1)}
+                </span>
+                <WiringToggle
+                  className={
+                    "pin-invert" + (data.tutorial ? " tutorial-toggle" : "")
+                  }
+                  style={{ top: top - 14 }}
+                  inverted={edge.inverted}
+                  hideGlyph
+                  label={label(port)}
+                  onToggle={() => data.toggle(port)}
+                />
+              </>
+            ) : (
+              <span
+                className={"pin-label" + (edge.source ? "" : " empty")}
+                style={{ top: top - 24 }}
+              >
+                {edge.inverted ? "¬" : ""}
                 {isFixedInput(edge)
-                  ? "固定信号" + edge.source
+                  ? "固定" + edge.source
                   : edge.source ||
-                    (edge.socket ? edge.socket + " 未接続" : "未接続")}
-                {edge.inverted ? "（ねじり）" : ""}
-              </b>
-            </span>
-            <strong style={{ color: color(readEdge(edge, data.values)) }}>
-              {valueText(readEdge(edge, data.values))}
-            </strong>
-            {canTwist(port) && (
-              <WiringToggle
-                inverted={edge.inverted}
-                value={data.values[edge.source]}
-                label={label(port)}
-                onToggle={() => data.toggle(port)}
-                showState
-              />
+                    (edge.socket
+                      ? edge.socket + " 未接続"
+                      : "入力" + (port + 1))}
+              </span>
             )}
-          </div>
-        ))}
-      </div>
-      <div className="gate-result">
-        <span>出力</span>
-        <strong style={{ color: color(data.value) }}>
-          {valueText(data.value)}
-        </strong>
-      </div>
-      <Source
-        data={data}
-        name={name}
-        top={54 + data.gate.ports.length * 46 + 22}
-      />
-      {data.editable && (
-        <div className="node-actions nodrag nopan">
-          <button onClick={data.remove} aria-label={name + "を取り外す"}>
-            取り外す
-          </button>
-        </div>
-      )}
+          </React.Fragment>
+        );
+      })}
+      <Source data={data} name={name} top={90} />
     </div>
   );
 }
 function OutputNode({ data }) {
   usePorts(data);
   return (
-    <div
-      className={`graph-node output-node${data.detail ? "" : " compact-output"}`}
-    >
-      <header className="node-title">
-        {data.name}
-        <DetailButton data={data} name={data.name} />
-      </header>
+    <div className="graph-node output-node compact-output">
+      <header className="node-title">{data.name}</header>
       <Handle
         type="target"
         position={Position.Left}
         id="in"
         value={data.inputValue}
-        style={{
-          top: data.detail ? "50%" : 48,
-          left: data.detail ? undefined : -44,
-        }}
-        className={data.inverted ? "inverted-port" : ""}
+        style={{ top: 48, left: -44 }}
         isConnectable={!data.demo}
-        aria-label={`出力${data.name}の入力端子`}
-        data-testid={`target-${data.name}`}
+        aria-label={"出力" + data.name + "の入力端子"}
+        data-testid={"target-" + data.name}
       />
       <div className="output-reading">
         <strong className="output-value" style={{ color: color(data.value) }}>
@@ -383,55 +301,33 @@ function OutputNode({ data }) {
         </strong>
         <span>{outputLabel(data.name)}</span>
       </div>
-      {data.detail ? (
-        <>
-          <div className="expected">この入力の正解：{data.expected}</div>
-          {data.invert && (
-            <WiringToggle
-              inverted={data.inverted}
-              value={data.inputValue}
-              label={"出力" + data.name + "を反転"}
-              onToggle={data.toggle}
-              showState
-            />
-          )}
-        </>
-      ) : (
-        <>
-          <div className="compact-expected">正解 {data.expected}</div>
-          {data.invert && (
-            <svg className="output-wire" viewBox="0 0 44 24" aria-hidden="true">
-              <rect
-                className="twist-hit-background"
-                x="14"
-                y="-2"
-                width="28"
-                height="28"
-                rx="8"
-              />
-              <WirePair
-                inverted={data.inverted}
-                length={44}
-                twistCenter={28}
-                value={data.inputValue}
-              />
-            </svg>
-          )}
-          {!data.invert && (
-            <svg className="output-wire" viewBox="0 0 44 24" aria-hidden="true">
-              <WirePair inverted={false} length={44} value={data.inputValue} />
-            </svg>
-          )}
-          {data.invert && (
-            <WiringToggle
-              className="compact-output-invert"
-              inverted={data.inverted}
-              hideGlyph
-              label={"出力" + data.name + "を反転"}
-              onToggle={data.toggle}
-            />
-          )}
-        </>
+      <div className="compact-expected">正解 {data.expected}</div>
+      <svg className="output-wire" viewBox="0 0 44 24" aria-hidden="true">
+        {data.invert && (
+          <rect
+            className="twist-hit-background"
+            x="14"
+            y="-2"
+            width="28"
+            height="28"
+            rx="8"
+          />
+        )}
+        <WirePair
+          inverted={data.inverted}
+          length={44}
+          twistCenter={28}
+          value={data.inputValue}
+        />
+      </svg>
+      {data.invert && (
+        <WiringToggle
+          className="compact-output-invert"
+          inverted={data.inverted}
+          hideGlyph
+          label={"出力" + data.name + "を反転"}
+          onToggle={data.toggle}
+        />
       )}
     </div>
   );
@@ -470,24 +366,9 @@ function BlueprintNode({ data }) {
 export function nodeSize(node) {
   if (node.type === "blueprint")
     return { width: node.data.width || 240, height: node.data.height || 220 };
-  if (node.type === "gate")
-    return node.data.detail
-      ? {
-          width: 260,
-          height:
-            node.data.gate.ports.length * 46 + (node.data.editable ? 150 : 114),
-        }
-      : { width: 170, height: 152 };
-  if (node.type === "constant") return { width: 100, height: 48 };
-  if (node.type === "answer")
-    return {
-      width: node.data.detail ? 150 : 112,
-      height: node.data.detail ? (node.data.invert ? 170 : 140) : 94,
-    };
-  return {
-    width: node.data.detail ? 150 : 100,
-    height: node.data.detail ? 94 : 48,
-  };
+  if (node.type === "gate") return { width: 170, height: 152 };
+  if (node.type === "answer") return { width: 112, height: 94 };
+  return { width: 100, height: 48 };
 }
 export const nodeTypes = {
   signal: SignalNode,

@@ -1,0 +1,151 @@
+.completion p {
+  flex: 1;
+  min-width: 0;
+}
+.completion .clear-result-button {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.clear-dialog {
+  width: min(460px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid #d9e2eb;
+  border-radius: 20px;
+  background: #fff;
+  color: #20364d;
+  box-shadow: 0 24px 80px #12263e40;
+  overflow: auto;
+}
+.clear-dialog::backdrop {
+  background: #182c4666;
+}
+.clear-dialog-content {
+  padding: 30px;
+}
+.clear-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #e7f4ed;
+  color: #247454;
+  font-size: 26px;
+}
+.clear-chapter {
+  margin: 22px 0 6px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: #748698;
+}
+.clear-dialog h2 {
+  margin: 0 0 12px;
+  font-size: 25px;
+  line-height: 1.45;
+}
+#clear-summary,
+.clear-finish {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #64798c;
+}
+.clear-score {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin: 22px 0;
+  font-size: 12px;
+}
+.clear-score strong {
+  font-size: 28px;
+}
+.clear-score > span {
+  margin-left: auto;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #e7f4ed;
+  color: #247454;
+  font-size: 11px;
+}
+.unlocked-blueprint {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px;
+  border: 1px dashed #a8c4d9;
+  border-radius: 12px;
+  background: #f1f7fc;
+}
+.blueprint-name {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border: 1px solid #bdd2e2;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+.unlocked-blueprint h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.unlocked-blueprint p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.8;
+  color: #607b91;
+}
+.clear-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 28px;
+}
+.minimum-challenge {
+  margin: 18px 0;
+  padding: 14px;
+  border-radius: 10px;
+  background: #fff7e7;
+  color: #765b27;
+  font-size: 13px;
+}
+.minimum-challenge p {
+  margin-bottom: 0;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.clear-dialog-actions button {
+  min-height: 42px;
+  padding: 9px 14px;
+  font-size: 12px;
+}
+@media (max-width: 440px) {
+  .completion .clear-result-button {
+    font-size: 10px;
+  }
+  .clear-dialog-content {
+    padding: 24px 20px;
+  }
+  .clear-dialog h2 {
+    font-size: 23px;
+  }
+  .unlocked-blueprint {
+    gap: 12px;
+    padding: 14px;
+  }
+  .clear-dialog-actions {
+    flex-direction: column-reverse;
+  }
+  .clear-dialog-actions button {
+    width: 100%;
+  }
+}

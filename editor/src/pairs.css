@@ -37,6 +37,8 @@
 .aggregation-wires .collector-bridge {
   stroke: #f6f8fb;
   stroke-width: 5;
+  /* Keep the crossing underlay from covering the incoming wire at x=64. */
+  stroke-linecap: butt;
 }
 .aggregation-junction {
   stroke: none;
@@ -55,6 +57,21 @@
 .compact-gate .node-title {
   padding: 0 6px;
   background: transparent;
+}
+.node-remove {
+  margin-left: auto;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #6d8191;
+  font-size: 17px;
+  line-height: 24px;
+}
+.node-remove:hover {
+  background: #ddc8c84d;
+  color: #a14747;
 }
 .compact-gate .wire-bridge,
 .aggregation-wires .collector-bridge {
