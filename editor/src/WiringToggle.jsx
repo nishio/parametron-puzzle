@@ -11,32 +11,31 @@ export function WiringGlyph({ inverted }) {
     </svg>
   );
 }
-// A complete lead: both strands start at the port and end at the body.
-// Only the central crossing gets a bridge, so its endpoints stay connected.
+// The two conductors stay separate from end to end. Twisting exchanges them.
 export function WirePair({ inverted, length }) {
-  const stub = Math.min(8, length * 0.12);
-  const lane = Math.min(20, length * 0.25);
-  const endLane = length - lane;
-  const bendStart = lane + (endLane - lane) * 0.15;
-  const bendEnd = endLane - (endLane - lane) * 0.15;
-  const middle = length / 2;
-  const fork = lane - stub;
-  const strand = (y, other) =>
-    `M0 12H${stub}C${stub + fork * 0.4} 12 ${stub + fork * 0.6} ${y} ${lane} ${y}H${bendStart}` +
+  const a = length * 0.3,
+    b = length * 0.7,
+    m = length / 2;
+  const strand = (from, to) =>
+    "M0 " +
+    from +
+    "H" +
+    a +
     (inverted
-      ? `C${middle} ${y} ${middle} ${other} ${bendEnd} ${other}`
-      : `H${bendEnd}`) +
-    `H${endLane}C${endLane + fork * 0.4} ${inverted ? other : y} ${endLane + fork * 0.6} 12 ${length - stub} 12H${length}`;
+      ? "C" + m + " " + from + " " + m + " " + to + " " + b + " " + to
+      : "H" + b) +
+    "H" +
+    length;
   return (
     <g className="wire-pair">
-      <path className="wire-zero" d={strand(6, 18)} />
+      <path className="wire-zero" data-rail="0" d={strand(6, 18)} />
       {inverted && (
         <path
           className="wire-bridge"
-          d={`M${bendStart} 18C${middle} 18 ${middle} 6 ${bendEnd} 6`}
+          d={"M" + a + " 18C" + m + " 18 " + m + " 6 " + b + " 6"}
         />
       )}
-      <path className="wire-one" d={strand(18, 6)} />
+      <path className="wire-one" data-rail="1" d={strand(18, 6)} />
     </g>
   );
 }

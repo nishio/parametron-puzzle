@@ -1,0 +1,75 @@
+.react-flow__handle.pair-terminal {
+  width: 22px;
+  height: 24px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.port-poles {
+  position: absolute;
+  inset: 0;
+  width: 22px;
+  height: 24px;
+  overflow: visible;
+  pointer-events: none;
+}
+.pole-zero {
+  fill: #365f7d;
+}
+.pole-one {
+  fill: #b48647;
+}
+.pair-terminal.connectingto .port-poles {
+  filter: drop-shadow(0 0 3px #6192b6);
+}
+.wire-pair path,
+.aggregation-wires path {
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.wire-zero {
+  stroke: #365f7d;
+}
+.wire-one {
+  stroke: #b48647;
+}
+.aggregation-wires .collector-bridge {
+  stroke: #f6f8fb;
+  stroke-width: 5;
+}
+.aggregation-junction {
+  stroke: none;
+}
+.compact-gate {
+  width: 170px;
+}
+.gate-symbol {
+  width: 170px;
+}
+.pin-invert.wiring-toggle {
+  left: 16px;
+  width: 48px;
+  max-width: 48px;
+}
+.react-flow__edge .react-flow__edge-path {
+  stroke: transparent !important;
+  stroke-width: 0 !important;
+  filter: none;
+}
+.signal-strand {
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 0 #f6f8fb) drop-shadow(0 -1px 0 #f6f8fb);
+}
+.react-flow__edge:hover .signal-strand,
+.react-flow__edge.selected .signal-strand,
+.wire-active .signal-strand {
+  stroke-width: 2.8;
+}
+.canvas-key > .wiring-glyph {
+  width: 26px;
+  height: 20px;
+}

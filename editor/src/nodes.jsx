@@ -1,11 +1,7 @@
 import React, { useLayoutEffect } from "react";
-import {
-  Handle,
-  Position,
-  useNodeId,
-  useUpdateNodeInternals,
-} from "@xyflow/react";
+import { Position, useNodeId, useUpdateNodeInternals } from "@xyflow/react";
 import { readEdge } from "./engine.js";
+import { PairPort as Handle } from "./PairPort.jsx";
 import { WiringToggle, WirePair } from "./WiringToggle.jsx";
 
 export const color = (value) =>
@@ -85,41 +81,96 @@ function ConstantNode({ data }) {
     </div>
   );
 }
-function ParametronSymbol({ value, gate, canTwist }) {
+function ParametronSymbol({ value, gate }) {
   return (
     <svg
       className="gate-symbol symbol-drag"
-      viewBox="0 0 190 124"
+      viewBox="0 0 170 124"
       aria-hidden="true"
     >
-      <g className="symbol-pins">
-        {gate.ports.map((edge, port) => {
-          const y = 30 + port * 32;
-          const end = 120 - Math.sqrt(36 * 36 - (y - 62) * (y - 62));
-          return (
-            <g
-              className="parametron-lead"
-              data-port={port}
-              key={port}
-              transform={`translate(0 ${y - 12})`}
-            >
-              {canTwist(port) ? (
-                <WirePair inverted={edge.inverted} length={end} />
-              ) : (
-                <path className="single-lead" d={`M0 12H${end}`} />
-              )}
-            </g>
-          );
-        })}
-        <path className="symbol-output-lead" d="M156 62H190" />
-      </g>
-      <g className="symbol-body">
-        <circle cx="120" cy="62" r="36" />
+      {gate.ports.map((edge, port) => (
+        <g
+          className="parametron-lead"
+          data-port={port}
+          key={port}
+          transform={"translate(0 " + (18 + port * 32) + ")"}
+        >
+          <WirePair inverted={edge.inverted} length={64} />
+        </g>
+      ))}
+      <g className="aggregation-wires">
+        {[0, 1, 2].map((port) => (
+          <path
+            key={port}
+            className="collector wire-zero"
+            data-rail="0"
+            data-input={port}
+            d={
+              "M64 " +
+              (24 + port * 32) +
+              "C88 " +
+              (24 + port * 32) +
+              " 92 56 112 56"
+            }
+          />
+        ))}
+        {[0, 1, 2].map((port) => (
+          <path
+            key={port}
+            className="collector-bridge"
+            d={
+              "M64 " +
+              (36 + port * 32) +
+              "C102 " +
+              (36 + port * 32) +
+              " 108 68 128 68"
+            }
+          />
+        ))}
+        {[0, 1, 2].map((port) => (
+          <path
+            key={port}
+            className="collector wire-one"
+            data-rail="1"
+            data-input={port}
+            d={
+              "M64 " +
+              (36 + port * 32) +
+              "C102 " +
+              (36 + port * 32) +
+              " 108 68 128 68"
+            }
+          />
+        ))}
+        <path
+          className="symbol-output-lead wire-zero"
+          data-rail="0"
+          d="M112 56H170"
+        />
+        <path
+          className="symbol-output-lead wire-one"
+          data-rail="1"
+          d="M128 68H170"
+        />
+        <circle
+          className="aggregation-junction pole-zero"
+          data-rail="0"
+          cx="112"
+          cy="56"
+          r="3.5"
+        />
+        <circle
+          className="aggregation-junction pole-one"
+          data-rail="1"
+          cx="128"
+          cy="68"
+          r="3.5"
+        />
       </g>
       <text
         className="symbol-value"
-        x="173"
-        y="48"
+        x="156"
+        y="44"
         textAnchor="middle"
         style={{ fill: color(value) }}
       >
@@ -315,7 +366,7 @@ function OutputNode({ data }) {
           )}
           {!data.invert && (
             <svg className="output-wire" viewBox="0 0 44 24" aria-hidden="true">
-              <path className="single-lead" d="M0 12H44" />
+              <WirePair inverted={false} length={44} />
             </svg>
           )}
           {data.invert && (
@@ -373,7 +424,7 @@ export function nodeSize(node) {
           height:
             node.data.gate.ports.length * 46 + (node.data.editable ? 150 : 114),
         }
-      : { width: 190, height: 152 };
+      : { width: 170, height: 152 };
   if (node.type === "constant") return { width: 100, height: 48 };
   if (node.type === "answer")
     return {

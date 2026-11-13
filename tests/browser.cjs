@@ -128,10 +128,14 @@ let browser;
   }
   async function checkTerminals(page) {
     await fit(page);
-    const errors = await page.evaluate(() => {
-      const issues = [];
-      const game = JSON.parse(localStorage.getItem("parametron-puzzle:v2"));
-      const board = game.boards[game.levelId];
+    const issues = await page.evaluate(() => {
+      const errors = [];
+      const game = JSON.parse(localStorage.getItem("parametron-puzzle:v2")),
+        board = game.boards[game.levelId];
+      const center = (el) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      };
       const point = (path, end = false) => {
         const p = path.getPointAtLength(end ? path.getTotalLength() : 0),
           m = path.getScreenCTM();
@@ -140,76 +144,91 @@ let browser;
           y: m.b * p.x + m.d * p.y + m.f,
         };
       };
-      const center = (element) => {
-        const r = element.getBoundingClientRect();
-        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-      };
       const equal = (name, a, b) => {
-        if (Math.hypot(a.x - b.x, a.y - b.y) > 2) issues.push({ name, a, b });
+        if (Math.hypot(a.x - b.x, a.y - b.y) > 2) errors.push({ name, a, b });
       };
+      const pole = (handle, rail) =>
+        handle.querySelector(rail === 0 ? ".pole-zero" : ".pole-one");
       for (const node of document.querySelectorAll(".react-flow__node-gate")) {
         if (!node.querySelector('[data-presentation="symbol"]')) continue;
         const index = Number(node.getAttribute("data-id").slice(5));
-        const circle = node.querySelector(".symbol-body circle"),
-          m = circle.getScreenCTM();
-        const c = {
-          x: m.a * Number(circle.getAttribute("cx")) + m.e,
-          y: m.d * Number(circle.getAttribute("cy")) + m.f,
-        };
-        const radius = Math.hypot(m.a, m.b) * Number(circle.getAttribute("r"));
+        if (node.querySelectorAll(".aggregation-junction").length !== 2)
+          errors.push({ name: "must have exactly two aggregation points" });
+        if (node.querySelector(".symbol-body"))
+          errors.push({ name: "large circle must not exist" });
         for (const lead of node.querySelectorAll(".parametron-lead")) {
-          const port = lead.getAttribute("data-port");
-          const terminal = node.querySelector(
+          const port = Number(lead.getAttribute("data-port"));
+          const target = node.querySelector(
             '[data-testid="target-' + index + "-" + port + '"]',
           );
-          for (const path of lead.querySelectorAll(
-            ".wire-zero,.wire-one,.single-lead",
-          )) {
-            equal(
-              "input port " + index + ":" + port,
-              point(path),
-              center(terminal),
+          for (const rail of [0, 1]) {
+            const strand = lead.querySelector('[data-rail="' + rail + '"]');
+            const destination =
+              rail ^ Number(board.gates[index].ports[port].inverted);
+            const collector = node.querySelector(
+              '.collector[data-input="' +
+                port +
+                '"][data-rail="' +
+                destination +
+                '"]',
             );
-            const end = point(path, true);
-            if (Math.abs(Math.hypot(end.x - c.x, end.y - c.y) - radius) > 2)
-              issues.push({
-                name: "body connection " + index + ":" + port,
-                end,
-                c,
-                radius,
-              });
+            equal("input pole", point(strand), center(pole(target, rail)));
+            equal("strand to collector", point(strand, true), point(collector));
           }
         }
-        equal(
-          "output port " + index,
-          point(node.querySelector(".symbol-output-lead"), true),
-          center(
-            node.querySelector('[data-testid="source-P' + (index + 1) + '"]'),
-          ),
-        );
+        for (const rail of [0, 1]) {
+          const junction = node.querySelector(
+            '.aggregation-junction[data-rail="' + rail + '"]',
+          );
+          const collectors = node.querySelectorAll(
+            '.collector[data-rail="' + rail + '"]',
+          );
+          if (collectors.length !== 3)
+            errors.push({
+              name: "each aggregation point must collect three wires",
+              rail,
+              count: collectors.length,
+            });
+          collectors.forEach((path) =>
+            equal(
+              "three wires to one pole",
+              point(path, true),
+              center(junction),
+            ),
+          );
+          const output = node.querySelector(
+            '.symbol-output-lead[data-rail="' + rail + '"]',
+          );
+          const source = node.querySelector(
+            '[data-testid="source-P' + (index + 1) + '"]',
+          );
+          equal("junction to output", point(output), center(junction));
+          equal("output pole", point(output, true), center(pole(source, rail)));
+        }
       }
       for (const node of document.querySelectorAll(
         ".react-flow__node-answer",
       )) {
         const wire = node.querySelector(".output-wire");
         if (!wire) continue;
-        const target = node.querySelector('[data-testid^="target-"]');
+        const name = node.getAttribute("data-id").slice(7),
+          target = node.querySelector('[data-testid^="target-"]');
         const card = node.querySelector(".output-node").getBoundingClientRect();
-        for (const path of wire.querySelectorAll(
-          ".wire-zero,.wire-one,.single-lead",
-        )) {
-          equal("answer port", point(path), center(target));
+        for (const rail of [0, 1]) {
+          const path = wire.querySelector('[data-rail="' + rail + '"]');
+          const destination = rail ^ Number(board.outputs[name].inverted);
+          equal("answer pole", point(path), center(pole(target, rail)));
           equal("answer body", point(path, true), {
             x: card.left,
-            y: center(target).y,
+            y: center(pole(target, destination)).y,
           });
         }
       }
       for (const edge of document.querySelectorAll(".react-flow__edge")) {
-        const id = edge.getAttribute("data-id");
-        let source, target;
-        const gate = /^gate:([0-9]+):([0-9]+)$/.exec(id),
+        const id = edge.getAttribute("data-id"),
+          gate = /^gate:([0-9]+):([0-9]+)$/.exec(id),
           output = /^output:(.+):in$/.exec(id);
+        let source, target;
         if (gate) {
           source = board.gates[Number(gate[1])].ports[Number(gate[2])].source;
           target = "target-" + gate[1] + "-" + gate[2];
@@ -217,36 +236,41 @@ let browser;
           source = board.outputs[output[1]].source;
           target = "target-" + output[1];
         } else continue;
-        const path = edge.querySelector(".react-flow__edge-path");
-        for (const [end, terminal] of [
-          [false, "source-" + source],
-          [true, target],
-        ]) {
-          const r = document
-            .querySelector('[data-testid="' + terminal + '"]')
-            .getBoundingClientRect();
-          const p = point(path, end);
-          if (
-            p.x < r.left - 2 ||
-            p.x > r.right + 2 ||
-            Math.abs(p.y - r.y - r.height / 2) > 2
-          )
-            issues.push({
-              name: "external " + id,
-              terminal,
-              p,
-              r: { left: r.left, right: r.right, y: r.y, height: r.height },
-            });
+        if (edge.querySelectorAll(".signal-strand").length !== 2)
+          errors.push({ name: "external connection must have two wires", id });
+        for (const rail of [0, 1]) {
+          const path = edge.querySelector(
+            '.signal-strand[data-rail="' + rail + '"]',
+          );
+          equal(
+            "external source pole",
+            point(path),
+            center(
+              pole(
+                document.querySelector('[data-testid="source-' + source + '"]'),
+                rail,
+              ),
+            ),
+          );
+          equal(
+            "external target pole",
+            point(path, true),
+            center(
+              pole(
+                document.querySelector('[data-testid="' + target + '"]'),
+                rail,
+              ),
+            ),
+          );
         }
       }
-      return issues;
+      return errors;
     });
     assert.deepEqual(
-      errors,
+      issues,
       [],
-      "Visible leads and React Flow wires must meet the actual ports without gaps",
+      "Every conductor must remain separate up to its own three-input aggregation point",
     );
-    assert.equal(await page.locator(".gate-symbol .symbol-name").count(), 0);
   }
   for (const width of [1280, 390, 320]) {
     const { page, context } = await open(width);

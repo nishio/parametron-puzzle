@@ -12,12 +12,12 @@ import {
   useReactFlow,
   useNodesInitialized,
   ConnectionLineType,
-  MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./style.css";
 import "./workspace.css";
 import "./wiring.css";
+import "./pairs.css";
 import {
   levels,
   clone,
@@ -39,6 +39,7 @@ import { lessons } from "./lessons.js";
 import { WiringGlyph, WiringToggle } from "./WiringToggle.jsx";
 import { nodeTypes, color } from "./nodes.jsx";
 import { autoArrange } from "./layout.js";
+import { edgeTypes } from "./PairEdge.jsx";
 import { placeBlueprint, ungroupBlueprint } from "./blueprints.js";
 
 const SAVE_KEY = "parametron-puzzle:v2";
@@ -357,14 +358,8 @@ function App() {
         sourceHandle: source.handle,
         target,
         targetHandle: handle,
-        type: "default",
+        type: "pair",
         pathOptions: { curvature: 0.25 },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: color(readEdge(edge, v.values)),
-          width: 14,
-          height: 14,
-        },
         interactionWidth: 24,
         deletable: !l.demo && !l.lockedWiring,
         reconnectable: !l.demo && !l.lockedWiring,
@@ -752,7 +747,7 @@ function App() {
               </p>
               <a href="https://reactflow.dev/">React Flow</a>
               <span>
-                丸い素子はすべてパラメトロン。設計図の枠・反転・定数・分岐は無料。
+                計算素子はすべてパラメトロン。設計図の枠・反転・定数・分岐は無料。
               </span>
             </footer>
           </aside>
@@ -855,6 +850,7 @@ function App() {
                 }))}
                 zIndexMode="manual"
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 onNodesChange={onGraphNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={connect}
@@ -897,13 +893,9 @@ function App() {
                   />
                 )}
                 <Panel position="top-left" className="canvas-key">
-                  <span>
-                    <i className="zero" />0
-                  </span>
-                  <span>
-                    <i className="one" />1
-                  </span>
-                  <span>○ 端子から接続</span>
+                  <WiringGlyph inverted={false} />
+                  <span>2本で1信号</span>
+                  <span>端子から接続</span>
                 </Panel>
                 <Panel position="top-right">
                   {detailNode && (
