@@ -12,6 +12,7 @@ const solutions={
   full:raw([['A','B','Cin'],['A','B','!Cin'],['!P1','P2','Cin']],{S:'P3',Cout:'P1'})
 };
 const library={AND:solutions.and,OR:solutions.or,XOR:solutions.xor};
+const {materializeBoard,placeBlueprint,ungroupBlueprint}=await import('../editor/src/blueprints.js');
 let rows=0;
 for(const [id,board] of Object.entries(solutions)) {
   const level=lookup(id),result=score(level,board,library);
@@ -107,11 +108,48 @@ assert.equal(evaluate(lookup('xor'),cyclic,3,library).outputs.Y,null);
 const oldGame=normalizeGame({version:2,level:1,introDone:true,boards:{and:raw([['','','']],{Y:''})}});
 assert.deepEqual(oldGame.boards.and.gates[0].ports.slice(0,2).map(edge=>edge.source),['A','B']);
 assert.equal(oldGame.boards.and.outputs.Y.source,'P1');
-const flowBoard={...moduleFull,flow:{wide:{'gate:0':{x:123,y:456},'gate:1':{x:500,y:22},'output:S':{x:800,y:10},unknown:{x:0,y:0}}}};
+const flowBoard={...solutions.full,flow:{wide:{'gate:0':{x:123,y:456},'gate:1':{x:500,y:22},'output:S':{x:800,y:10},unknown:{x:0,y:0}}}};
 const imported=normalizeBoard(lookup('full'),flowBoard,library);
 assert.equal(imported.flow.wide.unknown,undefined);
 assert.deepEqual(removeGate(imported,0).flow.wide['gate:0'],{x:500,y:22});
 assert.deepEqual(normalizeGame({version:2,level:5,introDone:true,library,bests:{and:1,or:1,xor:3,half:4},boards:{full:flowBoard}}).boards.full.flow.wide['gate:0'],{x:123,y:456});
+
+// A placed blueprint is an editable copy of the user's actual saved netlist.
+const migrated=normalizeBoard(lookup('full'),moduleFull,library);
+assert.equal(migrated.gates.length,9);
+assert.equal(migrated.blueprints.length,5);
+assert.ok(migrated.gates.every(gate=>gate.type==='MAJ'));
+assert.equal(score(lookup('full'),migrated,{}).clear,true,'Placed circuits must run without a blueprint library or logic-gate primitives');
+const placed=placeBlueprint({gates:[],outputs:{Y:edge('')},input:0},'XOR',library);
+assert.equal(placed.gates.length,3);
+assert.ok(placed.gates.every(gate=>gate.type==='MAJ'&&gate.ports.length===3));
+assert.equal(placed.gates[0].ports[2].source,'0');
+assert.equal(placed.gates[1].ports[2].source,'1');
+assert.equal(placed.gates[2].ports[0].inverted,true);
+placed.gates.forEach(gate=>gate.ports.forEach(port=>{if(port.socket)port.source=port.socket;}));
+placed.outputs.Y={...placed.blueprints[0].output};
+assert.equal(score(lookup('xor'),placed,{}).clear,true);
+const ungrouped=ungroupBlueprint(placed,placed.blueprints[0].id);
+assert.deepEqual(ungrouped.gates,placed.gates);
+assert.deepEqual(ungrouped.outputs,placed.outputs);
+assert.equal(score(lookup('xor'),ungrouped,{}).clear,true);
+const second=placeBlueprint(placed,'XOR',library);
+second.gates[3].ports[2].source='1';
+assert.equal(second.gates[0].ports[2].source,'0','Blueprint instances must be independent');
+assert.equal(library.XOR.gates[0].ports[2].source,'0','Placement must not mutate the saved blueprint');
+const {removeBlueprint}=await import('../editor/src/engine.js');
+const without=removeBlueprint(second,placed.blueprints[0].id);
+assert.equal(without.gates.length,3);
+assert.equal(without.outputs.Y.source,'');
+assert.deepEqual(without.blueprints[0].gates,[0,1,2]);
+assert.ok(freshBoard(lookup('full'),library).gates.every(gate=>gate.type==='MAJ'));
+assert.equal(freshBoard(lookup('full'),library).gates.length,9);
+const alternative=raw([['!P2','P3','0'],['A','B','0'],['A','B','1']],{Y:'P1'});
+const alternativeStamp=placeBlueprint({gates:[],outputs:{Y:edge('')},input:0},'XOR',{XOR:alternative});
+alternativeStamp.gates.forEach(gate=>gate.ports.forEach(port=>{if(port.socket)port.source=port.socket;}));
+alternativeStamp.outputs.Y={...alternativeStamp.blueprints[0].output};
+assert.equal(alternativeStamp.gates[0].ports[0].source,'P2','The user\'s own circuit topology must be copied, including references to later-created nodes');
+assert.equal(score(lookup('xor'),alternativeStamp,{}).clear,true);
 
 console.log('PASS: all puzzle truth tables, earned blocks, expansion, inversions, removal, progress, and exact 3-node lower bounds.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -351,6 +351,50 @@ footer span {
   background: transparent;
   box-shadow: none;
 }
+.react-flow__node-blueprint {
+  border-radius: 14px;
+}
+.blueprint-frame {
+  width: 100%;
+  height: 100%;
+  border: 1.5px dashed #81a9c5;
+  border-radius: 14px;
+  background: #e3f0f83b;
+  position: relative;
+}
+.blueprint-frame > .node-title {
+  height: 42px;
+  border-bottom: 1px dashed #bdd3e2;
+  padding: 7px 10px;
+  gap: 6px;
+  font-size: 13px;
+}
+.blueprint-frame > .node-title > span {
+  font-size: 9px;
+  color: #6086a1;
+}
+.blueprint-frame button {
+  min-height: 24px;
+  padding: 2px 4px;
+  font-size: 8px;
+  background: #f6fbfe;
+  border-color: #c8dce9;
+}
+.blueprint-frame button:first-of-type {
+  margin-left: auto;
+}
+.blueprint-caption {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  font-size: 9px;
+  color: #7696ae;
+  pointer-events: none;
+}
+.react-flow__node-blueprint.selected .blueprint-frame {
+  border-style: solid;
+  border-color: #396f97;
+}
 .compact-gate .node-title {
   height: 28px;
   padding: 0;

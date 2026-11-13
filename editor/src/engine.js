@@ -1,3 +1,4 @@
+import { materializeBoard } from "./blueprints.js";
 const VERSION = 2;
 const levels = [
   {
@@ -36,7 +37,7 @@ const levels = [
     reward: "OR",
     title: "1個のパラメトロンでORを作ろう",
     lesson:
-      "AとBの少なくとも一方が1なら、Yを1にします。できた回路は、あとで部品として再利用できます。",
+      "AとBの少なくとも一方が1なら、Yを1にします。できた回路は、あとでブループリントから複製できます。",
     target: ([a, b]) => ({ Y: a | b }),
   },
   {
@@ -62,9 +63,9 @@ const levels = [
     minimum: 3,
     parts: true,
     invert: true,
-    title: "作った部品を組み合わせて、半加算器に",
+    title: "作った回路のブループリントで、半加算器に",
     lesson:
-      "A+Bの下位ビットをS、繰り上がりをCに出そう。XORとANDを再利用できます。「展開」で部品の中の配線も編集できます。",
+      "A+Bの下位ビットをS、繰り上がりをCに出そう。XORとANDのブループリントで、作ったパラメトロン回路を複製できます。内部の配線も直接編集できます。",
     target: ([a, b]) => ({ S: (a + b) % 2, C: +(a + b >= 2) }),
   },
   {
@@ -78,7 +79,7 @@ const levels = [
     invert: true,
     title: "全加算器を作り、さらに素子を減らそう",
     lesson:
-      "A+B+Cinの下位ビットをS、繰り上がりをCoutに出そう。部品の組み合わせでもクリア。多数決を直接使ったり、配線を共有したりして素子数の自己ベストを縮めよう。",
+      "A+B+Cinの下位ビットをS、繰り上がりをCoutに出そう。ブループリントから複製した回路でもクリア。配線やパラメトロンを共有して、個数の自己ベストを縮めよう。",
     target: ([a, b, c]) => ({ S: (a + b + c) % 2, Cout: +(a + b + c >= 2) }),
   },
 ];
@@ -89,7 +90,7 @@ const blankGate = (type = "MAJ") => ({
   type,
   ports: Array.from({ length: arity(type) }, blankEdge),
 });
-const freshBoard = (level) => {
+const freshBoard = (level, library = {}) => {
   const types =
     level.id === "xor"
       ? ["MAJ", "MAJ", "MAJ"]
@@ -127,6 +128,16 @@ const freshBoard = (level) => {
     board.outputs.S = { source: "P2", inverted: false };
     board.outputs.Cout = { source: "P5", inverted: false };
   }
+  if (level.parts) {
+    if (types.some((type) => type !== "MAJ" && !library[type])) {
+      board.gates = [blankGate()];
+      board.outputs = Object.fromEntries(
+        level.outputs.map((name) => [name, blankEdge()]),
+      );
+      return board;
+    }
+    return materializeBoard(board, library);
+  }
   return board;
 };
 const majority = (a, b, c) => +(a + b + c >= 2);
@@ -158,6 +169,10 @@ function readEdge(edge, values) {
     : null;
 }
 function evaluate(level, board, row, library = {}) {
+  // Compatibility with old saves: turn former opaque parts into real
+  // parametron netlists before running the majority-only simulator.
+  if (board.gates.some((gate) => gate.type !== "MAJ" && library[gate.type]))
+    return evaluate(level, materializeBoard(board, library), row, {});
   const values = { 0: 0, 1: 1 };
   level.inputs.forEach((name, i) => {
     values[name] = (row >> (level.inputs.length - 1 - i)) & 1;
@@ -177,15 +192,6 @@ function evaluate(level, board, row, library = {}) {
     let value = null;
     if (inputs.every((v) => v !== null)) {
       if (gate.type === "MAJ") value = majority(...inputs);
-      else if (library[gate.type]) {
-        const inner = library[gate.type];
-        value = evaluate(
-          { inputs: ["A", "B"], outputs: ["Y"] },
-          inner,
-          inputs[0] * 2 + inputs[1],
-          {},
-        ).outputs.Y;
-      }
     }
     values[source] = value;
     resolving.delete(source);
@@ -260,13 +266,13 @@ function allowedTypes(level, library) {
 }
 function normalizeBoard(level, candidate, library = {}) {
   if (level.demo) {
-    const board = freshBoard(level);
+    const board = freshBoard(level, library);
     if (Number.isInteger(candidate?.input))
       board.input = Math.max(0, Math.min(7, candidate.input));
     return board;
   }
   const fallback = () => {
-    const board = freshBoard(level);
+    const board = freshBoard(level, library);
     if (allocatedCost(board, library) > level.budget)
       board.gates = [blankGate()];
     return board;
@@ -277,10 +283,12 @@ function normalizeBoard(level, candidate, library = {}) {
     candidate.gates.length > level.budget
   )
     return fallback();
+  candidate = materializeBoard(candidate, library);
   const types = allowedTypes(level, library);
   const normalizeEdge = (value, choices) => ({
     source: choices.includes(value?.source) ? value.source : "",
     inverted: level.invert === true && value?.inverted === true,
+    ...(["A", "B"].includes(value?.socket) ? { socket: value.socket } : {}),
   });
   const base = ["", "0", "1", ...level.inputs];
   const gates = candidate.gates.map((gate, i) => {
@@ -315,6 +323,37 @@ function normalizeBoard(level, candidate, library = {}) {
       ? Math.max(0, Math.min(2 ** level.inputs.length - 1, candidate.input))
       : 0,
   };
+  const assigned = new Set(),
+    groupIds = new Set();
+  if (Array.isArray(candidate.blueprints)) {
+    board.blueprints = candidate.blueprints.flatMap((group) => {
+      if (
+        !/^bp[1-9][0-9]*$/.test(group?.id) ||
+        groupIds.has(group.id) ||
+        !["AND", "OR", "XOR"].includes(group.name) ||
+        !Array.isArray(group.gates)
+      )
+        return [];
+      const members = [...new Set(group.gates)].filter(
+        (index) =>
+          Number.isInteger(index) &&
+          gates[index]?.type === "MAJ" &&
+          !assigned.has(index),
+      );
+      if (!members.length) return [];
+      groupIds.add(group.id);
+      members.forEach((index) => assigned.add(index));
+      return [
+        {
+          id: group.id,
+          name: group.name,
+          gates: members,
+          output: normalizeEdge(group.output, choices),
+        },
+      ];
+    });
+    if (!board.blueprints.length) delete board.blueprints;
+  }
   if (candidate.layout && typeof candidate.layout === "object") {
     board.layout = {};
     for (const mode of ["wide", "narrow"])
@@ -336,9 +375,17 @@ function normalizeBoard(level, candidate, library = {}) {
       "constants",
       ...gates.map((_, i) => "gate:" + i),
       ...level.outputs.map((name) => "output:" + name),
+      ...(board.blueprints || []).map((group) => "blueprint:" + group.id),
     ]);
     board.flow = {};
-    for (const mode of ["wide", "narrow", "symbolWide", "symbolNarrow"])
+    for (const mode of [
+      "wide",
+      "narrow",
+      "symbolWide",
+      "symbolNarrow",
+      "blueprintWide",
+      "blueprintNarrow",
+    ])
       if (candidate.flow[mode] && typeof candidate.flow[mode] === "object")
         board.flow[mode] = Object.fromEntries(
           Object.entries(candidate.flow[mode])
@@ -393,7 +440,28 @@ function removeGate(board, index) {
   Object.keys(result.outputs).forEach((name) => {
     result.outputs[name] = map(result.outputs[name]);
   });
+  if (result.blueprints) {
+    result.blueprints = result.blueprints
+      .map((group) => ({
+        ...group,
+        gates: group.gates
+          .filter((i) => i !== index)
+          .map((i) => (i > index ? i - 1 : i)),
+        output: map(group.output || blankEdge()),
+      }))
+      .filter((group) => group.gates.length);
+    if (!result.blueprints.length) delete result.blueprints;
+  }
   return result;
+}
+function removeBlueprint(board, id) {
+  let next = clone(board);
+  const group = next.blueprints?.find((item) => item.id === id);
+  if (!group) return next;
+  for (const index of [...group.gates].sort((a, b) => b - a))
+    next = removeGate(next, index);
+  delete next.flow;
+  return next;
 }
 function expandGate(board, index, library) {
   const part = library[board.gates[index]?.type];
@@ -539,6 +607,7 @@ export {
   allowedTypes,
   normalizeBoard,
   removeGate,
+  removeBlueprint,
   expandGate,
   normalizeGame,
   canConnect,

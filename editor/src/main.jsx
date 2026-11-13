@@ -14,7 +14,6 @@ import {
   ConnectionLineType,
   MarkerType,
 } from "@xyflow/react";
-import dagre from "@dagrejs/dagre";
 import "@xyflow/react/dist/style.css";
 import "./style.css";
 import "./workspace.css";
@@ -32,13 +31,21 @@ import {
   allowedTypes,
   normalizeGame,
   removeGate,
-  expandGate,
+  removeBlueprint,
   canConnect,
 } from "./engine.js";
 import { lessons } from "./lessons.js";
-import { nodeTypes, nodeSize, color } from "./nodes.jsx";
+import { nodeTypes, color } from "./nodes.jsx";
+import { autoArrange } from "./layout.js";
+import { placeBlueprint, ungroupBlueprint } from "./blueprints.js";
 
 const SAVE_KEY = "parametron-puzzle:v2";
+const VIEW_PADDING = {
+  top: "68px",
+  right: "24px",
+  bottom: "56px",
+  left: "56px",
+};
 const readGame = () => {
   try {
     return normalizeGame(JSON.parse(localStorage.getItem(SAVE_KEY)));
@@ -53,79 +60,6 @@ const signalNode = (source) =>
     : source === "0" || source === "1"
       ? { id: "constants", handle: source }
       : { id: "input:" + source, handle: "out" };
-function autoArrange(nodes, edges) {
-  const graph = new dagre.graphlib.Graph();
-  graph.setDefaultEdgeLabel(() => ({}));
-  graph.setGraph({
-    rankdir: "LR",
-    nodesep: 40,
-    ranksep: 100,
-    marginx: 30,
-    marginy: 30,
-  });
-  nodes.forEach((node) =>
-    graph.setNode(node.id, {
-      ...nodeSize(node),
-    }),
-  );
-  edges.forEach((edge) => graph.setEdge(edge.source, edge.target));
-  const gates = nodes.filter((node) => node.type === "gate");
-  if (
-    !edges.some(
-      (edge) =>
-        edge.source.startsWith("gate:") && edge.target.startsWith("gate:"),
-    ) &&
-    gates.length > 1
-  ) {
-    const stages =
-      gates.length === 5
-        ? [
-            [0, 1],
-            [0, 3],
-            [2, 4],
-            [3, 4],
-          ]
-        : gates.length === 3
-          ? [
-              [0, 2],
-              [1, 2],
-            ]
-          : gates.slice(1).map((_, i) => [i, i + 1]);
-    stages.forEach(([a, b]) => graph.setEdge(gates[a].id, gates[b].id));
-    nodes
-      .filter((node) => node.type === "signal")
-      .forEach((node) => graph.setEdge(node.id, gates[0].id));
-  }
-  dagre.layout(graph);
-  const arranged = nodes.map((node) => {
-    const p = graph.node(node.id);
-    return {
-      ...node,
-      position: { x: p.x - p.width / 2, y: p.y - p.height / 2 },
-    };
-  });
-  // Dagre has no concept of port order. Keep named inputs in reading order
-  // so A/B/C do not cross each other before reaching a single majority gate.
-  const inputs = arranged.filter(
-    (node) => node.type === "signal" || node.type === "constants",
-  );
-  if (inputs.length) {
-    const top = Math.min(...inputs.map((node) => node.position.y));
-    const bottom = Math.max(
-      ...inputs.map((node) => node.position.y + nodeSize(node).height),
-    );
-    const height =
-      inputs.reduce((sum, node) => sum + nodeSize(node).height, 0) +
-      (inputs.length - 1) * 40;
-    const x = Math.min(...inputs.map((node) => node.position.x));
-    let y = (top + bottom - height) / 2;
-    inputs.forEach((node) => {
-      node.position = { x, y };
-      y += nodeSize(node).height + 40;
-    });
-  }
-  return arranged;
-}
 function App() {
   const [game, setGame] = useState(readGame),
     gameRef = useRef(game),
@@ -145,14 +79,15 @@ function App() {
     lastStage = useRef(""),
     positionFrame = useRef(null);
   const level = levels[game.level],
-    board = game.boards[level.id] || freshBoard(level),
+    board = game.boards[level.id] || freshBoard(level, game.library),
     result = score(level, board, game.library),
-    mode = mobile ? "symbolNarrow" : "symbolWide";
+    mode = mobile ? "blueprintNarrow" : "blueprintWide";
   const observed = evaluate(level, board, board.input, game.library),
     info = lessons[level.id];
   function install(next) {
     const l = levels[next.level],
-      b = next.boards[l.id] || (next.boards[l.id] = freshBoard(l));
+      b =
+        next.boards[l.id] || (next.boards[l.id] = freshBoard(l, next.library));
     const check = score(l, b, next.library);
     if (!l.demo && check.clear) {
       next.bests[l.id] = Math.min(next.bests[l.id] ?? Infinity, check.cost);
@@ -172,7 +107,8 @@ function App() {
     const previous = gameRef.current,
       next = clone(previous),
       l = levels[next.level],
-      b = next.boards[l.id] || (next.boards[l.id] = freshBoard(l));
+      b =
+        next.boards[l.id] || (next.boards[l.id] = freshBoard(l, next.library));
     if (remember) {
       (undo.current[l.id] || (undo.current[l.id] = [])).push(clone(b));
       if (undo.current[l.id].length > 30) undo.current[l.id].shift();
@@ -203,7 +139,7 @@ function App() {
   const validConnection = useCallback((c) => {
     const current = gameRef.current,
       l = levels[current.level],
-      b = current.boards[l.id] || freshBoard(l);
+      b = current.boards[l.id] || freshBoard(l, current.library);
     if (l.demo) return false;
     const target = destination(c),
       source = connectionSource(c);
@@ -270,7 +206,7 @@ function App() {
   }, []);
   useEffect(() => {
     const l = levels[game.level],
-      b = game.boards[l.id] || freshBoard(l),
+      b = game.boards[l.id] || freshBoard(l, game.library),
       v = evaluate(l, b, b.input, game.library),
       expected = l.target(
         l.inputs.map((_, i) => (b.input >> (l.inputs.length - 1 - i)) & 1),
@@ -312,12 +248,47 @@ function App() {
         position: { x: 0, y: 0 },
         data: { demo: false },
       });
+    const groupForGate = new Map();
+    for (const group of b.blueprints || []) {
+      group.gates.forEach((index) =>
+        groupForGate.set(index, "blueprint:" + group.id),
+      );
+      nextNodes.push({
+        id: "blueprint:" + group.id,
+        type: "blueprint",
+        ...base,
+        deletable: true,
+        position: { x: 0, y: 0 },
+        data: {
+          group,
+          ungroup: () => {
+            setDetailNode(null);
+            fitNeeded.current = true;
+            commit(
+              (board) => ungroupBlueprint(board, group.id),
+              "設計図の枠を外しました。パラメトロンと配線は残ります。",
+            );
+          },
+          remove: () => {
+            setDetailNode(null);
+            fitNeeded.current = true;
+            commit(
+              (board) => removeBlueprint(board, group.id),
+              "ブループリントの回路を取り外しました。",
+            );
+          },
+        },
+      });
+    }
     b.gates.forEach((gate, index) =>
       nextNodes.push({
         id: "gate:" + index,
         type: "gate",
         ...base,
         deletable: game.level >= 3,
+        ...(groupForGate.has(index)
+          ? { parentId: groupForGate.get(index), extent: "parent" }
+          : {}),
         position: { x: 0, y: 0 },
         data: {
           gate,
@@ -342,13 +313,6 @@ function App() {
             setDetailNode(null);
             fitNeeded.current = true;
             commit((board) => removeGate(board, index));
-          },
-          expand: () => {
-            setDetailNode(null);
-            fitNeeded.current = true;
-            commit((board) =>
-              expandGate(board, index, gameRef.current.library),
-            );
           },
         },
       }),
@@ -422,6 +386,9 @@ function App() {
         detailChanged ||
         previous.length !== nextNodes.length ||
         nextNodes.some(
+          (node) => existing.get(node.id)?.parentId !== node.parentId,
+        ) ||
+        nextNodes.some(
           (node) =>
             node.type === "gate" &&
             existing.has(node.id) &&
@@ -431,7 +398,11 @@ function App() {
       return arranged.map((node) => ({
         ...node,
         position:
-          (!detailNode && b.flow?.[mode]?.[node.id]) ||
+          ((!structural ||
+            changed ||
+            (detailChanged && previous.length === nextNodes.length)) &&
+            !detailNode &&
+            b.flow?.[mode]?.[node.id]) ||
           (!structural && existing.has(node.id)
             ? existing.get(node.id).position
             : node.position),
@@ -449,18 +420,24 @@ function App() {
   useEffect(() => {
     if (initialized && fitNeeded.current) {
       fitNeeded.current = false;
-      flow.fitView({
-        nodes: detailNode ? [{ id: detailNode }] : undefined,
-        padding: 0.12,
-        minZoom: detailNode ? 0.85 : 0.2,
-        maxZoom: detailNode ? 1.1 : 1,
-        duration: 0,
-      });
+      // Native subflows need their parent and child measurements applied
+      // before computing the viewport for a newly stamped circuit.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          flow.fitView({
+            nodes: detailNode ? [{ id: detailNode }] : undefined,
+            padding: VIEW_PADDING,
+            minZoom: detailNode ? 0.85 : 0.2,
+            maxZoom: detailNode ? 1.1 : 1,
+            duration: 0,
+          }),
+        ),
+      );
     }
   }, [initialized, nodes, flow, detailNode]);
   useEffect(() => {
     const timer = setTimeout(
-      () => flow.fitView({ padding: 0.12, maxZoom: 1, duration: 150 }),
+      () => flow.fitView({ padding: VIEW_PADDING, maxZoom: 1, duration: 150 }),
       80,
     );
     return () => clearTimeout(timer);
@@ -499,9 +476,20 @@ function App() {
           b.gates[t.index].ports[t.port] = blankEdge();
       }
       let next = b;
+      const removed = new Set(
+        deletedNodes
+          .filter((node) => node.id.startsWith("gate:"))
+          .map((node) => Number(node.id.slice(5))),
+      );
       deletedNodes
-        .filter((node) => node.id.startsWith("gate:"))
-        .map((node) => Number(node.id.slice(5)))
+        .filter((node) => node.type === "blueprint")
+        .forEach((node) => {
+          const group = b.blueprints?.find(
+            (group) => "blueprint:" + group.id === node.id,
+          );
+          group?.gates.forEach((index) => removed.add(index));
+        });
+      [...removed]
         .sort((a, b) => b - a)
         .forEach((index) => {
           next = removeGate(next, index);
@@ -609,7 +597,8 @@ function App() {
             <div className="goal">
               <strong>{info.goal}</strong>
               <span>
-                装置 {allocatedCost(board, game.library)} / {level.budget}個
+                パラメトロン {allocatedCost(board, game.library)} /{" "}
+                {level.budget}個
               </span>
             </div>
             <p className="coach" role="status">
@@ -618,7 +607,7 @@ function App() {
             </p>
 
             <p className="flow-help">
-              丸い端子を出力→入力の順に押すか、ドラッグして接続。素子をつかんで移動、背景でスクロール。「詳細」で反転・部品の中を編集できます。
+              丸い端子を出力→入力の順に押すか、ドラッグして接続。素子をつかんで移動、背景でスクロール。「詳細」で各パラメトロンの反転を編集できます。ブループリントは保存した回路をまとめて設置する設計図です。
             </p>
             {!level.demo && (
               <>
@@ -710,7 +699,9 @@ function App() {
                   : "この環境では保存できません。ページを閉じるまで遊べます。"}
               </p>
               <a href="https://reactflow.dev/">React Flow</a>
-              <span>波形は模式表示。反転・定数・分岐は無料。</span>
+              <span>
+                丸い素子はすべてパラメトロン。設計図の枠・反転・定数・分岐は無料。波形は模式表示。
+              </span>
             </footer>
           </aside>
         )}
@@ -738,7 +729,7 @@ function App() {
                     setDetailNode(null);
                     fitNeeded.current = true;
                     commit(
-                      () => freshBoard(level),
+                      () => freshBoard(level, gameRef.current.library),
                       "この問題を最初からやり直します。",
                     );
                   }}
@@ -749,16 +740,18 @@ function App() {
             )}
             {game.level >= 3 && (
               <label>
-                部品{" "}
+                置くもの{" "}
                 <select
-                  aria-label="追加する部品"
+                  aria-label="配置する素子・ブループリント"
                   value={part}
                   onChange={(e) => setPart(e.target.value)}
                 >
                   {allowedTypes(level, game.library).map((type) => (
                     <option key={type} value={type}>
-                      {type === "MAJ" ? "多数決" : type} ·{" "}
-                      {partCost(type, game.library)}個分
+                      {type === "MAJ"
+                        ? "パラメトロン"
+                        : type + "のブループリント"}{" "}
+                      · {partCost(type, game.library)}個
                     </option>
                   ))}
                 </select>
@@ -774,12 +767,14 @@ function App() {
                     commit((b) => {
                       if (!allowedTypes(level, game.library).includes(part))
                         return;
-                      b.gates.push(blankGate(part));
+                      if (part !== "MAJ")
+                        return placeBlueprint(b, part, gameRef.current.library);
+                      b.gates.push(blankGate());
                       delete b.flow;
                     });
                   }}
                 >
-                  追加
+                  {part === "MAJ" ? "追加" : "設置"}
                 </button>
               </label>
             )}
@@ -834,7 +829,10 @@ function App() {
                 deleteKeyCode={["Backspace", "Delete"]}
               >
                 <Background gap={20} size={1} />
-                <Controls showInteractive={false} />
+                <Controls
+                  showInteractive={false}
+                  fitViewOptions={{ padding: VIEW_PADDING }}
+                />
                 {!mobile && game.level >= 3 && (
                   <MiniMap
                     pannable
@@ -864,7 +862,7 @@ function App() {
                   </button>
                   <button
                     onClick={() =>
-                      flow.fitView({ padding: 0.1, duration: 150 })
+                      flow.fitView({ padding: VIEW_PADDING, duration: 150 })
                     }
                   >
                     全体を見る

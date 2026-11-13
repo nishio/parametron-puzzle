@@ -11,6 +11,7 @@ let browser;
 (async () => {
   browser = await chromium.launch({ channel: "msedge", headless: true });
   const errors = [];
+  let blueprintGame;
   async function open(width, game) {
     const context = await browser.newContext({
       viewport: { width, height: 900 },
@@ -230,22 +231,42 @@ let browser;
         fullPage: true,
       });
       await page.getByRole("button", { name: /次へ：半加算器/ }).click();
-      for (const node of [1, 2]) {
-        await wire(page, node, 1, "A");
-        await wire(page, node, 2, "B");
-      }
+      const half = (await stored(page)).boards.half;
+      assert.equal(half.gates.length, 4);
+      assert.equal(
+        await page.locator('[data-presentation="blueprint"]').count(),
+        2,
+      );
+      for (const [i, gate] of half.gates.entries())
+        for (const [p, edge] of gate.ports.entries())
+          if (edge.socket) await wire(page, i + 1, p + 1, edge.socket);
+      await page.screenshot({
+        path: path.join(out, "half-blueprints.png"),
+        fullPage: true,
+      });
       await clear(page, 4);
       await page.getByRole("button", { name: /次へ：全加算器/ }).click();
-      for (const [i, ports] of [
-        ["A", "B"],
-        ["P1", "Cin"],
-        ["A", "B"],
-        ["P1", "Cin"],
-        ["P3", "P4"],
-      ].entries())
-        for (const [j, source] of ports.entries())
-          await wire(page, i + 1, j + 1, source);
+      const full = (await stored(page)).boards.full;
+      assert.equal(full.gates.length, 9);
+      assert.ok(full.gates.every((gate) => gate.type === "MAJ"));
+      assert.equal(
+        await page.locator('[data-presentation="blueprint"]').count(),
+        5,
+      );
+      const bindings = [
+        { A: "A", B: "B" },
+        { A: "P3", B: "Cin" },
+        { A: "A", B: "B" },
+        { A: "P3", B: "Cin" },
+        { A: "P7", B: "P8" },
+      ];
+      for (const [g, group] of full.blueprints.entries())
+        for (const i of group.gates)
+          for (const [p, edge] of full.gates[i].ports.entries())
+            if (edge.socket)
+              await wire(page, i + 1, p + 1, bindings[g][edge.socket]);
       await clear(page, 9);
+      blueprintGame = await stored(page);
       await fit(page);
       await page.screenshot({
         path: path.join(out, "full-adder.png"),
@@ -262,56 +283,102 @@ let browser;
       await page.waitForFunction(
         () =>
           JSON.parse(localStorage.getItem("parametron-puzzle:v2")).boards.full
-            .flow?.symbolWide,
+            .flow?.blueprintWide,
       );
       const saved = await stored(page);
       assert.equal(saved.bests.full, 9);
       await page.reload({ waitUntil: "networkidle" });
       await clear(page, 9);
       assert.deepEqual(
-        (await stored(page)).boards.full.flow.symbolWide,
-        saved.boards.full.flow.symbolWide,
+        (await stored(page)).boards.full.flow.blueprintWide,
+        saved.boards.full.flow.blueprintWide,
       );
       const node = page.locator('.react-flow__node[data-id="gate:0"]');
       await node.locator(".node-title").click();
       await node.focus();
-      await page.keyboard.press("ArrowDown");
+      await page.keyboard.press("ArrowUp");
       await page.waitForFunction(
         (y) =>
           JSON.parse(localStorage.getItem("parametron-puzzle:v2")).boards.full
-            .flow.symbolWide["gate:0"].y !== y,
-        saved.boards.full.flow.symbolWide["gate:0"].y,
+            .flow.blueprintWide["gate:0"].y !== y,
+        saved.boards.full.flow.blueprintWide["gate:0"].y,
       );
       await page
         .getByRole("button", { name: "配置を整える", exact: true })
         .click();
       await clear(page, 9);
-      await details(page, "P1");
-      await page.getByRole("button", { name: "P1を展開", exact: true }).click();
-      await clear(page, 9);
-      assert.equal((await stored(page)).boards.full.gates.length, 7);
+      const physical = (await stored(page)).boards.full.gates;
+      await fit(page);
       await page
-        .locator('[data-presentation="detail"]')
-        .waitFor({ state: "hidden" });
-      assert.equal(
-        await page.locator('[data-presentation="detail"]').count(),
-        0,
-        "Expanding a part returns to symbols",
+        .getByRole("button", { name: "bp1の枠を外す", exact: true })
+        .click();
+      assert.deepEqual(
+        (await stored(page)).boards.full.gates,
+        physical,
+        "Removing a frame must preserve the actual circuit",
       );
-      for (let i = 7; i >= 1; i--) {
-        await details(page, `P${i}`);
+      await clear(page, 9);
+      await page
+        .getByRole("button", { name: "ひとつ戻す", exact: true })
+        .click();
+      await clear(page, 9);
+      // Native parent-node movement carries its real parametron children.
+      await fit(page);
+      const groupTitle = page.locator(
+        '.react-flow__node[data-id="blueprint:bp1"] > .blueprint-frame > .node-title',
+      );
+      const groupBox = await groupTitle.boundingBox();
+      await page.mouse.move(groupBox.x + 15, groupBox.y + 12);
+      await page.mouse.down();
+      await page.mouse.move(groupBox.x + 55, groupBox.y + 44, { steps: 8 });
+      await page.mouse.up();
+      for (const id of ["bp5", "bp4", "bp3", "bp2", "bp1"]) {
+        await fit(page);
         await page
-          .getByRole("button", { name: `P${i}を取り外す`, exact: true })
+          .getByRole("button", { name: id + "の回路を取り外す", exact: true })
           .click();
-        if (
-          await page
-            .getByRole("button", { name: "すべて畳む", exact: true })
-            .count()
-        )
-          await page
-            .getByRole("button", { name: "すべて畳む", exact: true })
-            .click();
       }
+      assert.equal((await stored(page)).boards.full.gates.length, 0);
+      // A palette entry stamps a saved raw circuit, with constants and inversions.
+      await page
+        .getByRole("combobox", { name: "配置する素子・ブループリント" })
+        .selectOption("XOR");
+      await page.getByRole("button", { name: "設置", exact: true }).click();
+      const stamp = (await stored(page)).boards.full;
+      assert.equal(stamp.gates.length, 3);
+      assert.ok(stamp.gates.every((gate) => gate.type === "MAJ"));
+      assert.equal(stamp.gates[2].ports[0].inverted, true);
+      await page.locator('[data-presentation="blueprint"]').waitFor();
+      await page.waitForFunction(() => {
+        const frame = document
+          .querySelector(".flow-frame")
+          .getBoundingClientRect();
+        return [...document.querySelectorAll(".react-flow__node")].every(
+          (node) => {
+            const r = node.getBoundingClientRect();
+            return (
+              r.left >= frame.left - 1 &&
+              r.right <= frame.right + 1 &&
+              r.top >= frame.top - 1 &&
+              r.bottom <= frame.bottom + 1
+            );
+          },
+        );
+      });
+      await page.screenshot({
+        path: path.join(out, "placed-blueprint.png"),
+        fullPage: true,
+      });
+      await fit(page);
+      await page
+        .getByRole("button", {
+          name: stamp.blueprints[0].id + "の回路を取り外す",
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole("combobox", { name: "配置する素子・ブループリント" })
+        .selectOption("MAJ");
       for (let i = 0; i < 3; i++)
         await page.getByRole("button", { name: "追加", exact: true }).click();
       for (const [i, ports] of [
@@ -359,11 +426,51 @@ let browser;
       "The workspace must fit the screen without page scrolling",
     );
     await context.close();
+    if (width < 700) {
+      const fixture = JSON.parse(JSON.stringify(blueprintGame));
+      fixture.level = 5;
+      fixture.boards.full = {
+        gates: [],
+        outputs: {
+          S: { source: "", inverted: false },
+          Cout: { source: "", inverted: false },
+        },
+        input: 0,
+      };
+      const mobile = await open(width, fixture);
+      await mobile.page
+        .getByRole("combobox", { name: "配置する素子・ブループリント" })
+        .selectOption("XOR");
+      await mobile.page
+        .getByRole("button", { name: "設置", exact: true })
+        .tap();
+      await mobile.page.locator('[data-presentation="blueprint"]').waitFor();
+      assert.equal((await stored(mobile.page)).boards.full.gates.length, 3);
+      await connect(mobile.page, "A", "0-0", true);
+      assert.equal(
+        (await stored(mobile.page)).boards.full.gates[0].ports[0].source,
+        "A",
+      );
+      await details(mobile.page, "P1");
+      assert.ok(
+        (
+          await mobile.page
+            .locator('[data-presentation="detail"]')
+            .boundingBox()
+        ).width >= 220,
+      );
+      await collapse(mobile.page, "P1");
+      await mobile.page.screenshot({
+        path: path.join(out, `blueprint-${width}.png`),
+        fullPage: true,
+      });
+      await mobile.context.close();
+    }
   }
   await browser.close();
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: React Flow native drag/click/tap connections, node and keyboard movement, saved progress/positions, Dagre layout, part expansion, 9- and 3-element full adders, reversed creation order, cycle rejection, responsive pages.",
+    "PASS: React Flow native drag/click/tap connections, node and keyboard movement, saved progress/positions, Dagre layout, raw parametron blueprint placement/ungrouping/removal, 9- and 3-element full adders, reversed creation order, cycle rejection, responsive pages.",
   );
 })().catch(async (error) => {
   console.error(error);

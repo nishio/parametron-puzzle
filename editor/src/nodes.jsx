@@ -116,7 +116,7 @@ function ConstantsNode({ data }) {
     </div>
   );
 }
-function Symbol({ type, value, ports }) {
+function ParametronSymbol({ value }) {
   return (
     <svg
       className="gate-symbol symbol-drag"
@@ -124,30 +124,13 @@ function Symbol({ type, value, ports }) {
       aria-hidden="true"
     >
       <g className="symbol-pins">
-        <path
-          d={
-            ports === 2
-              ? "M0 24H52 M0 72H52 M122 48H160"
-              : "M0 24H52 M0 48H48 M0 72H52 M122 48H160"
-          }
-        />
+        <path d="M0 24H52 M0 48H48 M0 72H52 M122 48H160" />
       </g>
       <g className="symbol-body">
-        {type === "MAJ" ? (
-          <circle cx="86" cy="48" r="36" />
-        ) : type === "AND" ? (
-          <path d="M50 14H84A34 34 0 0 1 84 82H50Z" />
-        ) : (
-          <>
-            <path d="M48 14Q72 48 48 82Q101 83 127 48Q101 13 48 14Z" />
-            {type === "XOR" && (
-              <path className="symbol-extra" d="M40 14Q64 48 40 82" />
-            )}
-          </>
-        )}
+        <circle cx="86" cy="48" r="36" />
       </g>
       <text className="symbol-name" x="84" y="44" textAnchor="middle">
-        {type === "MAJ" ? "≥2" : type}
+        ≥2
       </text>
       <path
         className="symbol-sine"
@@ -179,18 +162,10 @@ function GateNode({ data }) {
       <div className="graph-node compact-gate" data-presentation="symbol">
         <header className="node-title">
           <strong>{name}</strong>
-          <span>
-            {data.gate.type === "MAJ"
-              ? "多数決"
-              : `${data.gate.type} · ${data.cost}個分`}
-          </span>
+          <span>パラメトロン</span>
           <DetailButton data={data} name={name} />
         </header>
-        <Symbol
-          type={data.gate.type}
-          value={data.value}
-          ports={data.gate.ports.length}
-        />
+        <ParametronSymbol value={data.value} />
         {data.gate.ports.map((edge, port) => {
           const top = 52 + port * (data.gate.ports.length === 2 ? 48 : 24);
           return (
@@ -215,7 +190,8 @@ function GateNode({ data }) {
                 style={{ top: top - 18 }}
               >
                 {edge.inverted ? "¬" : ""}
-                {edge.source || `入力${port + 1}`}
+                {edge.source ||
+                  (edge.socket ? edge.socket + " 未接続" : `入力${port + 1}`)}
               </span>
             </React.Fragment>
           );
@@ -227,9 +203,7 @@ function GateNode({ data }) {
     <div className="graph-node gate-node" data-presentation="detail">
       <header className="node-title">
         <strong>{name}</strong>
-        <span>
-          {data.gate.type === "MAJ" ? "多数決" : data.gate.type} {data.cost}個分
-        </span>
+        <span>パラメトロン · 1個</span>
         <DetailButton data={data} name={name} />
       </header>
       <div className="gate-ports">
@@ -247,7 +221,8 @@ function GateNode({ data }) {
             <span>
               <small>入力{port + 1}</small>
               <b>
-                {edge.source || "未接続"}
+                {edge.source ||
+                  (edge.socket ? edge.socket + " 未接続" : "未接続")}
                 {edge.inverted ? "（反転）" : ""}
               </b>
             </span>
@@ -281,11 +256,6 @@ function GateNode({ data }) {
       />
       {data.editable && (
         <div className="node-actions nodrag nopan">
-          {data.gate.type !== "MAJ" && (
-            <button onClick={data.expand} aria-label={`${name}を展開`}>
-              中を開く
-            </button>
-          )}
           <button onClick={data.remove} aria-label={`${name}を取り外す`}>
             取り外す
           </button>
@@ -343,7 +313,40 @@ function OutputNode({ data }) {
     </div>
   );
 }
+function BlueprintNode({ data }) {
+  return (
+    <div
+      className="blueprint-frame"
+      data-presentation="blueprint"
+      data-blueprint-name={data.group.name}
+    >
+      <header className="node-title">
+        <strong>{data.group.name}</strong>
+        <span>ブループリント</span>
+        <button
+          className="nodrag nopan"
+          aria-label={data.group.id + "の枠を外す"}
+          onClick={data.ungroup}
+        >
+          枠を外す
+        </button>
+        <button
+          className="nodrag nopan"
+          aria-label={data.group.id + "の回路を取り外す"}
+          onClick={data.remove}
+        >
+          ×
+        </button>
+      </header>
+      <div className="blueprint-caption">
+        {data.group.gates.length} パラメトロン · 保存した回路の複製
+      </div>
+    </div>
+  );
+}
 export function nodeSize(node) {
+  if (node.type === "blueprint")
+    return { width: node.data.width || 240, height: node.data.height || 220 };
   if (node.type === "gate")
     return node.data.detail
       ? {
@@ -367,5 +370,6 @@ export const nodeTypes = {
   signal: SignalNode,
   constants: ConstantsNode,
   gate: GateNode,
+  blueprint: BlueprintNode,
   answer: OutputNode,
 };
