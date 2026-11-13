@@ -1,18 +1,27 @@
 import React from "react";
+import { strandColor } from "./signals.js";
 
-export function WiringGlyph({ inverted }) {
+export function WiringGlyph({ inverted, value = 0 }) {
   const first = inverted ? "M3 6C13 6 19 18 29 18" : "M3 6H29";
   const second = inverted ? "M3 18C13 18 19 6 29 6" : "M3 18H29";
   return (
     <svg className="wiring-glyph" viewBox="0 0 32 24" aria-hidden="true">
-      <path d={first} className="wire-zero" />
+      <path
+        d={first}
+        className="wire-zero"
+        style={{ stroke: strandColor(value, 0) }}
+      />
       {inverted && <path d={second} className="wire-bridge" />}
-      <path d={second} className="wire-one" />
+      <path
+        d={second}
+        className="wire-one"
+        style={{ stroke: strandColor(value, 1) }}
+      />
     </svg>
   );
 }
 // The two conductors stay separate from end to end. Twisting exchanges them.
-export function WirePair({ inverted, length }) {
+export function WirePair({ inverted, length, value = null }) {
   const a = length * 0.3,
     b = length * 0.7,
     m = length / 2;
@@ -28,14 +37,24 @@ export function WirePair({ inverted, length }) {
     length;
   return (
     <g className="wire-pair">
-      <path className="wire-zero" data-rail="0" d={strand(6, 18)} />
+      <path
+        className="wire-zero"
+        data-rail="0"
+        d={strand(6, 18)}
+        style={{ stroke: strandColor(value, 0) }}
+      />
       {inverted && (
         <path
           className="wire-bridge"
           d={"M" + a + " 18C" + m + " 18 " + m + " 6 " + b + " 6"}
         />
       )}
-      <path className="wire-one" data-rail="1" d={strand(18, 6)} />
+      <path
+        className="wire-one"
+        data-rail="1"
+        d={strand(18, 6)}
+        style={{ stroke: strandColor(value, 1) }}
+      />
     </g>
   );
 }
@@ -48,6 +67,7 @@ export function WiringToggle({
   className = "",
   style,
   hideGlyph = false,
+  value = null,
 }) {
   return (
     <button
@@ -65,7 +85,7 @@ export function WiringToggle({
       }}
     >
       {source && <span className="wiring-source">{source}</span>}
-      {!hideGlyph && <WiringGlyph inverted={inverted} />}
+      {!hideGlyph && <WiringGlyph inverted={inverted} value={value} />}
       {showState && <span>{inverted ? "ねじり" : "平行"}</span>}
     </button>
   );

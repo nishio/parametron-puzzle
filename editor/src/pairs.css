@@ -41,6 +41,12 @@
 .aggregation-junction {
   stroke: none;
 }
+.aggregation-ring {
+  fill: none;
+  stroke: #8ca2b4;
+  stroke-width: 1.2;
+  pointer-events: none;
+}
 .compact-gate {
   width: 170px;
 }

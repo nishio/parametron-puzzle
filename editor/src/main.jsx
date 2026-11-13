@@ -337,6 +337,7 @@ function App() {
               current === "output:" + name ? null : "output:" + name,
             ),
           value: v.outputs[name],
+          inputValue: v.values[b.outputs[name].source],
           expected: expected[name],
           demo: l.demo || l.lockedWiring,
           invert: l.invert && !l.tutorial,
@@ -367,7 +368,7 @@ function App() {
         label: undefined,
         labelStyle: { fontSize: 12, fill: "#1e324a" },
         labelBgStyle: { fill: "#fff" },
-        data: { inverted: edge.inverted },
+        data: { inverted: edge.inverted, value: v.values[edge.source] },
         ariaLabel: `${edge.source}から${target}へ${edge.inverted ? "反転" : ""}`,
       });
     }
@@ -940,6 +941,7 @@ function App() {
                   <WiringToggle
                     label="選択中の配線を反転"
                     inverted={selected.data.inverted}
+                    value={selected.data.value}
                     showState
                     onToggle={() =>
                       commit((b) => {

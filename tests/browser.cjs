@@ -128,10 +128,26 @@ let browser;
   }
   async function checkTerminals(page) {
     await fit(page);
-    const issues = await page.evaluate(() => {
+    const snapshot = await stored(page);
+    const { evaluate, levels } = await import("../editor/src/engine.js");
+    const level = levels.find((entry) => entry.id === snapshot.levelId);
+    const board = snapshot.boards[level.id];
+    const values = evaluate(level, board, board.input, snapshot.library).values;
+    const issues = await page.evaluate((values) => {
       const errors = [];
       const game = JSON.parse(localStorage.getItem("parametron-puzzle:v2")),
         board = game.boards[game.levelId];
+      const checkColor = (name, element, value, rail, property = "stroke") => {
+        const bit = value === 0 || value === 1 ? value ^ rail : null;
+        const expected =
+          bit === 0
+            ? "rgb(39, 110, 175)"
+            : bit === 1
+              ? "rgb(185, 119, 19)"
+              : "rgb(146, 160, 176)";
+        const actual = getComputedStyle(element)[property];
+        if (actual !== expected) errors.push({ name, actual, expected });
+      };
       const center = (el) => {
         const r = el.getBoundingClientRect();
         return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
@@ -174,6 +190,16 @@ let browser;
             );
             equal("input pole", point(strand), center(pole(target, rail)));
             equal("strand to collector", point(strand, true), point(collector));
+            const value = values[board.gates[index].ports[port].source];
+            checkColor("input wire phase", strand, value, rail);
+            checkColor("collector phase after twist", collector, value, rail);
+            checkColor(
+              "input pole phase",
+              pole(target, rail),
+              value,
+              rail,
+              "fill",
+            );
           }
         }
         for (const rail of [0, 1]) {
@@ -204,6 +230,16 @@ let browser;
           );
           equal("junction to output", point(output), center(junction));
           equal("output pole", point(output, true), center(pole(source, rail)));
+          const value = values["P" + (index + 1)];
+          checkColor("output wire phase", output, value, rail);
+          checkColor("aggregation phase", junction, value, rail, "fill");
+          checkColor(
+            "output pole phase",
+            pole(source, rail),
+            value,
+            rail,
+            "fill",
+          );
         }
       }
       for (const node of document.querySelectorAll(
@@ -222,6 +258,15 @@ let browser;
             x: card.left,
             y: center(pole(target, destination)).y,
           });
+          const value = values[board.outputs[name].source];
+          checkColor("answer wire phase", path, value, rail);
+          checkColor(
+            "answer pole phase",
+            pole(target, rail),
+            value,
+            rail,
+            "fill",
+          );
         }
       }
       for (const edge of document.querySelectorAll(".react-flow__edge")) {
@@ -242,6 +287,7 @@ let browser;
           const path = edge.querySelector(
             '.signal-strand[data-rail="' + rail + '"]',
           );
+          checkColor("external wire phase", path, values[source], rail);
           equal(
             "external source pole",
             point(path),
@@ -265,7 +311,7 @@ let browser;
         }
       }
       return errors;
-    });
+    }, values);
     assert.deepEqual(
       issues,
       [],
@@ -488,6 +534,18 @@ let browser;
     else await twist.click();
     await clear(page, 1);
     assert.equal(await twist.getAttribute("aria-checked"), "true");
+    await checkTerminals(page);
+    const inputA = page.getByRole("button", {
+      name: "入力Aを切り替える",
+      exact: true,
+    });
+    const beforeInput = (await stored(page)).boards.twist.input;
+    if (width < 700) await inputA.tap();
+    else await inputA.click();
+    assert.equal((await stored(page)).boards.twist.input, 1 - beforeInput);
+    await checkTerminals(page);
+    if (width < 700) await inputA.tap();
+    else await inputA.click();
     await checkTerminals(page);
     assert.equal(
       await page

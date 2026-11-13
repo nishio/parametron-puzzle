@@ -1,6 +1,7 @@
 import React from "react";
 import { BaseEdge, getBezierPath } from "@xyflow/react";
 import { POLE_OFFSET, PORT_HALF_WIDTH } from "./PairPort.jsx";
+import { strandColor } from "./signals.js";
 
 export function PairEdge(props) {
   // React Flow provides handle-edge coordinates. Center them on the two
@@ -32,8 +33,18 @@ export function PairEdge(props) {
         style={{ stroke: "transparent", strokeWidth: 0 }}
         interactionWidth={24}
       />
-      <path d={upper} className="signal-strand wire-zero" data-rail="0" />
-      <path d={lower} className="signal-strand wire-one" data-rail="1" />
+      <path
+        d={upper}
+        className="signal-strand wire-zero"
+        data-rail="0"
+        style={{ stroke: strandColor(props.data?.value, 0) }}
+      />
+      <path
+        d={lower}
+        className="signal-strand wire-one"
+        data-rail="1"
+        style={{ stroke: strandColor(props.data?.value, 1) }}
+      />
     </>
   );
 }

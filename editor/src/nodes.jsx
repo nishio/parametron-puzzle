@@ -3,9 +3,9 @@ import { Position, useNodeId, useUpdateNodeInternals } from "@xyflow/react";
 import { readEdge } from "./engine.js";
 import { PairPort as Handle } from "./PairPort.jsx";
 import { WiringToggle, WirePair } from "./WiringToggle.jsx";
+import { color, opposite, strandColor } from "./signals.js";
+export { color } from "./signals.js";
 
-export const color = (value) =>
-  value === 1 ? "#b97713" : value === 0 ? "#276eaf" : "#92a0b0";
 const valueText = (value) => (value === 0 || value === 1 ? String(value) : "?");
 const outputLabel = (name) =>
   name === "S" ? "1の位" : name === "C" || name === "Cout" ? "2の位" : "出力";
@@ -35,6 +35,7 @@ function Source({ data, name, top, id = "out" }) {
       type="source"
       position={Position.Right}
       id={id}
+      value={data.value}
       style={{ top, background: color(data.value) }}
       isConnectable={!data.demo}
       aria-label={`${name}の出力端子`}
@@ -81,7 +82,7 @@ function ConstantNode({ data }) {
     </div>
   );
 }
-function ParametronSymbol({ value, gate }) {
+function ParametronSymbol({ value, gate, values }) {
   return (
     <svg
       className="gate-symbol symbol-drag"
@@ -95,14 +96,20 @@ function ParametronSymbol({ value, gate }) {
           key={port}
           transform={"translate(0 " + (18 + port * 32) + ")"}
         >
-          <WirePair inverted={edge.inverted} length={64} />
+          <WirePair
+            inverted={edge.inverted}
+            length={64}
+            value={values[edge.source]}
+          />
         </g>
       ))}
+      <circle className="aggregation-ring" cx="120" cy="62" r="20" />
       <g className="aggregation-wires">
         {[0, 1, 2].map((port) => (
           <path
             key={port}
             className="collector wire-zero"
+            style={{ stroke: color(readEdge(gate.ports[port], values)) }}
             data-rail="0"
             data-input={port}
             d={
@@ -131,6 +138,9 @@ function ParametronSymbol({ value, gate }) {
           <path
             key={port}
             className="collector wire-one"
+            style={{
+              stroke: color(opposite(readEdge(gate.ports[port], values))),
+            }}
             data-rail="1"
             data-input={port}
             d={
@@ -144,16 +154,19 @@ function ParametronSymbol({ value, gate }) {
         ))}
         <path
           className="symbol-output-lead wire-zero"
+          style={{ stroke: strandColor(value, 0) }}
           data-rail="0"
           d="M112 56H170"
         />
         <path
           className="symbol-output-lead wire-one"
+          style={{ stroke: strandColor(value, 1) }}
           data-rail="1"
           d="M128 68H170"
         />
         <circle
           className="aggregation-junction pole-zero"
+          style={{ fill: strandColor(value, 0) }}
           data-rail="0"
           cx="112"
           cy="56"
@@ -161,6 +174,7 @@ function ParametronSymbol({ value, gate }) {
         />
         <circle
           className="aggregation-junction pole-one"
+          style={{ fill: strandColor(value, 1) }}
           data-rail="1"
           cx="128"
           cy="68"
@@ -195,6 +209,7 @@ function GateNode({ data }) {
         <ParametronSymbol
           value={data.value}
           gate={data.gate}
+          values={data.values}
           canTwist={canTwist}
         />
         {data.gate.ports.map((edge, port) => {
@@ -205,6 +220,7 @@ function GateNode({ data }) {
                 type="target"
                 position={Position.Left}
                 id={String(port)}
+                value={data.values[edge.source]}
                 style={{
                   top,
                   background: edge.inverted
@@ -267,6 +283,7 @@ function GateNode({ data }) {
               type="target"
               position={Position.Left}
               id={String(port)}
+              value={data.values[edge.source]}
               style={{ top: 66 + port * 46 }}
               isConnectable={!data.demo}
               aria-label={name + "の入力" + (port + 1)}
@@ -286,6 +303,7 @@ function GateNode({ data }) {
             {canTwist(port) && (
               <WiringToggle
                 inverted={edge.inverted}
+                value={data.values[edge.source]}
                 label={label(port)}
                 onToggle={() => data.toggle(port)}
                 showState
@@ -329,6 +347,7 @@ function OutputNode({ data }) {
         type="target"
         position={Position.Left}
         id="in"
+        value={data.inputValue}
         style={{
           top: data.detail ? "50%" : 48,
           left: data.detail ? undefined : -44,
@@ -350,6 +369,7 @@ function OutputNode({ data }) {
           {data.invert && (
             <WiringToggle
               inverted={data.inverted}
+              value={data.inputValue}
               label={"出力" + data.name + "を反転"}
               onToggle={data.toggle}
               showState
@@ -361,12 +381,16 @@ function OutputNode({ data }) {
           <div className="compact-expected">正解 {data.expected}</div>
           {data.invert && (
             <svg className="output-wire" viewBox="0 0 44 24" aria-hidden="true">
-              <WirePair inverted={data.inverted} length={44} />
+              <WirePair
+                inverted={data.inverted}
+                length={44}
+                value={data.inputValue}
+              />
             </svg>
           )}
           {!data.invert && (
             <svg className="output-wire" viewBox="0 0 44 24" aria-hidden="true">
-              <WirePair inverted={false} length={44} />
+              <WirePair inverted={false} length={44} value={data.inputValue} />
             </svg>
           )}
           {data.invert && (
