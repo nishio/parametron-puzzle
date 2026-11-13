@@ -1,126 +1,99 @@
 .welcome-screen {
   height: 100dvh;
   overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 32px 24px;
   background: #f6f8fb;
   color: #20364d;
 }
-.welcome-content {
-  width: min(100%, 760px);
-  margin: 0 auto;
-  padding: 32px 28px;
+.quiet-entry,
+.quiet-practice {
+  width: min(100%, 440px);
+  text-align: center;
 }
-.welcome-brand {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+.quiet-entry h1 {
+  margin: 0 0 24px;
+  font-size: 36px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
 }
-.welcome-brand span {
-  margin-left: 12px;
-  font-weight: 400;
-  letter-spacing: 0;
-  color: #6c8092;
-}
-.welcome-eyebrow {
-  margin: 42px 0 12px;
-  font-size: 12px;
-  color: #58788f;
-}
-.welcome-content h1 {
-  margin: 0 0 20px;
-  font-size: 42px;
-  line-height: 1.45;
-  letter-spacing: 0.015em;
-}
-.welcome-intro {
-  max-width: 620px;
-  margin: 0 0 28px;
-  font-size: 15px;
-  line-height: 1.9;
-  color: #577086;
-}
-.signal-practice {
-  padding: 24px;
-  border: 1px solid #d9e4ed;
-  border-radius: 16px;
-  background: white;
-}
-.signal-practice h2 {
-  margin: 0 0 8px;
-  font-size: 18px;
-}
-.signal-practice > p {
-  margin: 0;
-  font-size: 13px;
+.quiet-entry p {
+  margin: 0 0 40px;
+  font-size: 14px;
   line-height: 1.8;
-  color: #60788d;
+  color: #61788c;
 }
-.practice-controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  margin: 22px 0;
+.quiet-entry > .primary {
+  min-width: 180px;
+  min-height: 48px;
+  font-size: 15px;
 }
-.practice-controls > div {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-}
-.practice-controls span {
+.welcome-resume {
+  display: block;
+  margin: 24px auto 0;
+  border: 0;
+  background: transparent;
+  color: #61788c;
   font-size: 12px;
-  color: #60788d;
 }
-.practice-switch,
-.practice-controls output {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  max-width: 180px;
-  height: 88px;
-  border-radius: 12px;
-  font-size: 42px;
-  font-weight: 700;
-  color: #276eaf;
+.quiet-practice h1 {
+  margin: 0 0 40px;
+  font-size: 26px;
+  line-height: 1.5;
 }
-.practice-switch {
+.quiet-practice .practice-switch {
+  width: 120px;
+  height: 120px;
+  border: 2px solid #779bb7;
+  border-radius: 18px;
   background: #edf5fc;
-  border: 2px solid #5e8cad;
-  box-shadow: 0 0 0 4px #dfebf4;
+  font-size: 56px;
+  font-weight: 700;
+}
+.quiet-practice .practice-switch:disabled {
+  opacity: 1;
+  background: #fff8ea;
+  border-color: #dbc69d;
 }
 .practice-switch:focus-visible {
   outline: 3px solid #213a52;
   outline-offset: 5px;
 }
-.practice-controls output {
-  background: #f4f7fa;
-  border: 1px solid #dce5ed;
+.practice-next {
+  margin-top: 32px;
 }
-.practice-controls output[data-value="1"] {
-  color: #b97713;
-  background: #fff8ea;
+.practice-next p {
+  margin-bottom: 24px;
+  color: #61788c;
+  font-size: 14px;
 }
-.signal-practice .practice-feedback {
-  min-height: 24px;
-  color: #285f51;
-}
-.welcome-start {
-  width: 100%;
+.practice-next .primary {
+  min-width: 180px;
   min-height: 48px;
-  margin-top: 22px;
   font-size: 15px;
 }
-.welcome-note {
-  margin: 12px 0 0;
-  font-size: 11px;
-  line-height: 1.8;
-  color: #718394;
-  text-align: center;
+.guided-board .canvas-hint,
+.guided-board .completion p,
+.guided-board .compact-gate .node-title > span {
+  display: none;
 }
-.welcome-resume {
-  display: block;
-  margin: 16px auto 0;
-  border: 0;
-  background: transparent;
-  font-size: 12px;
+.guided-board:not(.guide-complete) .lesson-navigation {
+  visibility: hidden;
+}
+.guided-board .completion {
+  justify-content: flex-end;
+}
+@media (max-width: 700px) {
+  .quiet-entry h1 {
+    font-size: 29px;
+  }
+  .quiet-entry p {
+    font-size: 12px;
+  }
+  .quiet-practice h1 {
+    font-size: 23px;
+  }
 }
 .onboarding-coach {
   flex: 0 0 auto;
@@ -186,34 +159,6 @@
   stroke-width: 1.5;
 }
 @media (max-width: 700px) {
-  .welcome-content {
-    padding: 24px 20px;
-  }
-  .welcome-eyebrow {
-    margin-top: 28px;
-  }
-  .welcome-content h1 {
-    font-size: 29px;
-  }
-  .welcome-intro {
-    font-size: 13px;
-    margin-bottom: 20px;
-  }
-  .signal-practice {
-    padding: 18px;
-  }
-  .signal-practice h2 {
-    font-size: 16px;
-  }
-  .practice-controls {
-    gap: 16px;
-    margin: 18px 0;
-  }
-  .practice-switch,
-  .practice-controls output {
-    height: 76px;
-    font-size: 36px;
-  }
   .onboarding-coach {
     padding: 12px 16px;
   }

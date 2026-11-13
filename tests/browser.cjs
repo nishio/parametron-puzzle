@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const root = path.join(__dirname, ".."),
   dist = path.join(root, "docs"),
   out = path.join(root, ".artifacts/react-flow-review");
-const site = process.env.SITE_URL || "https://parametron.test/";
+const site = process.env.SITE_URL || "https://parametron.test/?welcome=1";
 fs.mkdirSync(out, { recursive: true });
 let browser;
 (async () => {
@@ -50,38 +50,62 @@ let browser;
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(site, { waitUntil: "networkidle" });
     const welcome = page.getByRole("button", {
-      name: "回路で試す",
+      name: "はじめる",
       exact: true,
     });
     if (await welcome.isVisible()) {
-      assert.ok(await welcome.isDisabled());
-      assert.ok(
-        await page
-          .getByRole("heading", { name: /小さな計算機を作ろう/ })
-          .isVisible(),
-      );
-      await page.screenshot({
-        path: path.join(out, "welcome-" + width + ".png"),
-        fullPage: true,
-      });
-      const practice = page.getByRole("button", {
-        name: "数字を1に切り替える",
+      const resume = page.getByRole("button", {
+        name: "ゲームに戻る",
         exact: true,
       });
-      if (width === 1280) {
-        await practice.focus();
-        await page.keyboard.press("Space");
-      } else await practice.tap();
-      assert.equal(
-        await page.locator(".practice-controls output").textContent(),
-        "1",
-      );
-      assert.ok(await welcome.isEnabled());
-      await page.screenshot({
-        path: path.join(out, "welcome-success-" + width + ".png"),
-        fullPage: true,
-      });
-      await welcome.click();
+      if (game && (await resume.isVisible())) await resume.click();
+      else {
+        assert.equal(
+          await page.getByRole("button").count(),
+          1,
+          "The first screen must have one action",
+        );
+        assert.ok(
+          await page
+            .getByRole("heading", { name: /計算機をつくろう/ })
+            .isVisible(),
+        );
+        await page.screenshot({
+          path: path.join(out, "welcome-" + width + ".png"),
+          fullPage: true,
+        });
+        await welcome.click();
+        assert.equal(
+          await page
+            .getByRole("button", { name: "回路で試す", exact: true })
+            .count(),
+          0,
+          "Practice must show only the current action",
+        );
+        await page.screenshot({
+          path: path.join(out, "practice-" + width + ".png"),
+          fullPage: true,
+        });
+        const practice = page.getByRole("button", {
+          name: "数字を1に切り替える",
+          exact: true,
+        });
+        if (width === 1280) {
+          await practice.focus();
+          await page.keyboard.press("Space");
+        } else await practice.tap();
+        assert.equal(await page.locator(".practice-switch").textContent(), "1");
+        const next = page.getByRole("button", {
+          name: "回路で試す",
+          exact: true,
+        });
+        assert.ok(await next.isEnabled());
+        await page.screenshot({
+          path: path.join(out, "welcome-success-" + width + ".png"),
+          fullPage: true,
+        });
+        await next.click();
+      }
     }
     await page.locator(".react-flow__node").first().waitFor();
     return { page, context };
@@ -1159,10 +1183,10 @@ let browser;
         .getByRole("combobox", { name: "問題を選ぶ" })
         .selectOption("0");
       await page
-        .getByRole("button", { name: "回路で試す", exact: true })
+        .getByRole("button", { name: "はじめる", exact: true })
         .waitFor();
       await page
-        .getByRole("button", { name: "練習を閉じてゲームに戻る", exact: true })
+        .getByRole("button", { name: "ゲームに戻る", exact: true })
         .click();
       const afterReplay = await stored(page);
       assert.equal(afterReplay.levelId, "full");

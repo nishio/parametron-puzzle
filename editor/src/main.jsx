@@ -86,7 +86,10 @@ function App() {
       game.level === 0 && !game.introDone ? false : innerWidth >= 900,
     ),
     [clearDialog, setClearDialog] = useState(null),
-    [guideSourceSelected, setGuideSourceSelected] = useState(false);
+    [guideSourceSelected, setGuideSourceSelected] = useState(false),
+    [welcomeRequested, setWelcomeRequested] = useState(
+      () => new URLSearchParams(location.search).get("welcome") === "1",
+    );
   const wireGuideActive = useRef(!game.onboarding.firstWireDone),
     resumeLevel = useRef(game.level);
   const announcedClears = useRef(new Set(Object.keys(game.bests)));
@@ -642,13 +645,23 @@ function App() {
     };
   });
   const selected = edges.find((edge) => edge.id === selectedEdge);
-  if (level.demo && !game.onboarding.welcomeDone)
+  const closeWelcomeLink = () => {
+    setWelcomeRequested(false);
+    const url = new URL(location.href);
+    url.searchParams.delete("welcome");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+  };
+  if (welcomeRequested || (level.demo && !game.onboarding.welcomeDone))
     return (
       <Welcome
         onStart={() => {
           const next = clone(gameRef.current);
+          next.level = 0;
+          next.introDone = false;
           next.onboarding.welcomeDone = true;
+          next.onboarding.majorityDone = false;
           next.boards.intro = freshBoard(levels[0]);
+          closeWelcomeLink();
           setSideOpen(false);
           install(next);
         }}
@@ -656,6 +669,7 @@ function App() {
           resumeLevel.current > 0
             ? () => {
                 const next = clone(gameRef.current);
+                closeWelcomeLink();
                 next.level = resumeLevel.current;
                 next.introDone = true;
                 next.onboarding.welcomeDone = true;
@@ -669,7 +683,7 @@ function App() {
     );
   return (
     <div
-      className={`page${sideOpen ? " sidebar-open" : ""}${guidedBoard ? " guided-board" : ""}`}
+      className={`page${sideOpen ? " sidebar-open" : ""}${guidedBoard ? " guided-board" : ""}${guidedBoard && guideDone ? " guide-complete" : ""}`}
       data-level={level.id}
     >
       <header className="site-header">
