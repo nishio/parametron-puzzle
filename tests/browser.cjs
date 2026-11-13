@@ -461,9 +461,16 @@ let browser;
         '.react-flow__node[data-id="gate:0"] .node-title',
       );
       const before = await title.boundingBox();
-      await page.mouse.move(before.x + 30, before.y + 20);
+      await page.mouse.move(
+        before.x + before.width * 0.2,
+        before.y + before.height / 2,
+      );
       await page.mouse.down();
-      await page.mouse.move(before.x + 110, before.y + 80, { steps: 8 });
+      await page.mouse.move(
+        before.x + before.width * 0.2 + 60,
+        before.y + before.height / 2 + 40,
+        { steps: 8 },
+      );
       await page.mouse.up();
       await page.waitForFunction(
         () =>
@@ -513,9 +520,13 @@ let browser;
         '.react-flow__node[data-id="blueprint:bp1"] > .blueprint-frame > .node-title',
       );
       const groupBox = await groupTitle.boundingBox();
-      await page.mouse.move(groupBox.x + 15, groupBox.y + 12);
+      await page.mouse.move(groupBox.x + 15, groupBox.y + groupBox.height / 2);
       await page.mouse.down();
-      await page.mouse.move(groupBox.x + 55, groupBox.y + 44, { steps: 8 });
+      await page.mouse.move(
+        groupBox.x + 55,
+        groupBox.y + groupBox.height / 2 + 32,
+        { steps: 8 },
+      );
       await page.mouse.up();
       for (const id of ["bp5", "bp4", "bp3", "bp2", "bp1"]) {
         await fit(page);

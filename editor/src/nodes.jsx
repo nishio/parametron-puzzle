@@ -89,23 +89,23 @@ function ParametronSymbol({ value }) {
   return (
     <svg
       className="gate-symbol symbol-drag"
-      viewBox="0 0 160 96"
+      viewBox="0 0 190 124"
       aria-hidden="true"
     >
       <g className="symbol-pins">
-        <path d="M0 24H52 M0 48H48 M0 72H52 M122 48H160" />
+        <path d="M0 30H104 M0 62H84 M0 94H104 M156 62H190" />
       </g>
       <g className="symbol-body">
-        <circle cx="86" cy="48" r="36" />
+        <circle cx="120" cy="62" r="36" />
       </g>
-      <text className="symbol-name" x="86" y="54" textAnchor="middle">
+      <text className="symbol-name" x="120" y="68" textAnchor="middle">
         ≥2
       </text>
-      <circle className="symbol-value-bg" cx="141" cy="48" r="12" />
+      <circle className="symbol-value-bg" cx="173" cy="62" r="11" />
       <text
         className="symbol-value"
-        x="141"
-        y="52"
+        x="173"
+        y="66"
         textAnchor="middle"
         style={{ fill: color(value) }}
       >
@@ -129,7 +129,7 @@ function GateNode({ data }) {
         </header>
         <ParametronSymbol value={data.value} />
         {data.gate.ports.map((edge, port) => {
-          const top = 52 + port * 24;
+          const top = 58 + port * 32;
           return (
             <React.Fragment key={port}>
               <Handle
@@ -148,21 +148,27 @@ function GateNode({ data }) {
                 data-testid={"target-" + data.index + "-" + port}
               />
               {canTwist(port) ? (
-                <WiringToggle
-                  className={
-                    "pin-label pin-invert" +
-                    (data.tutorial ? " tutorial-toggle" : "")
-                  }
-                  style={{ top: top - 23 }}
-                  inverted={edge.inverted}
-                  label={label(port)}
-                  source={edge.source || edge.socket || String(port + 1)}
-                  onToggle={() => data.toggle(port)}
-                />
+                <>
+                  <span
+                    className="pin-label wire-source-label"
+                    style={{ top: top - 26 }}
+                  >
+                    {edge.source || edge.socket || String(port + 1)}
+                  </span>
+                  <WiringToggle
+                    className={
+                      "pin-invert" + (data.tutorial ? " tutorial-toggle" : "")
+                    }
+                    style={{ top: top - 14 }}
+                    inverted={edge.inverted}
+                    label={label(port)}
+                    onToggle={() => data.toggle(port)}
+                  />
+                </>
               ) : (
                 <span
                   className={"pin-label" + (edge.source ? "" : " empty")}
-                  style={{ top: top - 18 }}
+                  style={{ top: top - 24 }}
                 >
                   {edge.inverted ? "¬" : ""}
                   {edge.source ||
@@ -174,7 +180,7 @@ function GateNode({ data }) {
             </React.Fragment>
           );
         })}
-        <Source data={data} name={name} top={76} />
+        <Source data={data} name={name} top={90} />
       </div>
     );
   return (
@@ -278,8 +284,8 @@ function OutputNode({ data }) {
           )}
         </>
       ) : (
-        <div className="compact-expected">
-          正解 {data.expected}
+        <>
+          <div className="compact-expected">正解 {data.expected}</div>
           {data.invert && (
             <WiringToggle
               className="compact-output-invert"
@@ -288,7 +294,7 @@ function OutputNode({ data }) {
               onToggle={data.toggle}
             />
           )}
-        </div>
+        </>
       )}
     </div>
   );
@@ -334,7 +340,7 @@ export function nodeSize(node) {
           height:
             node.data.gate.ports.length * 46 + (node.data.editable ? 150 : 114),
         }
-      : { width: 160, height: 124 };
+      : { width: 190, height: 152 };
   if (node.type === "constant") return { width: 100, height: 48 };
   if (node.type === "answer")
     return {
