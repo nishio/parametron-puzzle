@@ -338,7 +338,7 @@ function normalizeBoard(level, candidate, library = {}) {
       ...level.outputs.map((name) => "output:" + name),
     ]);
     board.flow = {};
-    for (const mode of ["wide", "narrow"])
+    for (const mode of ["wide", "narrow", "symbolWide", "symbolNarrow"])
       if (candidate.flow[mode] && typeof candidate.flow[mode] === "object")
         board.flow[mode] = Object.fromEntries(
           Object.entries(candidate.flow[mode])

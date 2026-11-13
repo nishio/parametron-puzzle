@@ -1,0 +1,726 @@
+/* The workspace fills the viewport; lesson content never steals canvas height. */
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  overflow: hidden;
+}
+.page {
+  max-width: none;
+  height: 100dvh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.site-header {
+  height: 66px;
+  flex: 0 0 66px;
+  padding: 0 24px;
+  background: #fff;
+  gap: 24px;
+}
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+}
+.brand small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  color: #718095;
+  font-weight: 400;
+}
+.brand-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #fff;
+  background: #213a52;
+  border-radius: 10px;
+  font-size: 30px;
+  line-height: 1;
+}
+.lesson-navigation {
+  margin: 0 auto 0 24px;
+  gap: 18px;
+}
+.lesson-navigation > span {
+  color: #7b8c9d;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.lesson-navigation label {
+  font-size: 11px;
+}
+.lesson-navigation select {
+  min-height: 36px;
+  padding: 5px 28px 5px 10px;
+  background: #f6f8fb;
+  border-color: #dce4ed;
+}
+.sidebar-toggle {
+  flex-shrink: 0;
+  font-size: 12px;
+  min-height: 36px;
+  padding: 6px 12px;
+}
+.workspace {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  padding: 0;
+  position: relative;
+}
+.lesson-panel {
+  flex: 0 0 296px;
+  width: 296px;
+  padding: 28px 22px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-right: 1px solid #d7e1eb;
+  background: #fff;
+}
+.panel-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  color: #8b6d3c;
+  letter-spacing: 0.18em;
+  margin-bottom: 14px;
+}
+.lesson-panel h1 {
+  font-size: 23px;
+  line-height: 1.65;
+  letter-spacing: 0.02em;
+}
+.lesson {
+  font-size: 12px;
+  line-height: 1.9;
+  margin-top: 15px;
+}
+.goal {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 20px 0 14px;
+  padding: 12px;
+  border-color: #dce5ed;
+  border-radius: 8px;
+  background: #f5f8fa;
+}
+.goal strong {
+  font-size: 12px;
+}
+.goal > span {
+  color: #6e8294;
+  font-size: 11px;
+}
+.coach {
+  font-size: 12px;
+  line-height: 1.85;
+  margin: 0 0 16px;
+}
+.flow-help {
+  font-size: 11px;
+  line-height: 1.9;
+  padding: 13px 0;
+  border-top: 1px solid #e8edf2;
+}
+.section-title {
+  font-size: 12px;
+  margin: 20px 0 10px;
+}
+.test-cases {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.test-cases button {
+  min-height: 58px;
+  padding: 7px;
+  font-size: 10px;
+}
+.test-cases small {
+  font-size: 10px;
+}
+.truth-table {
+  font-size: 10px;
+}
+.truth-table td,
+.truth-table th {
+  padding: 6px 3px;
+}
+footer {
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 15px;
+  font-size: 10px;
+  line-height: 1.8;
+}
+footer span {
+  margin-left: 0;
+}
+.canvas-column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.toolbar {
+  flex: 0 0 auto;
+  min-height: 58px;
+  padding: 9px 20px;
+  margin: 0;
+  border-bottom: 1px solid #d7e1eb;
+  background: #f7f9fb;
+  gap: 8px;
+}
+.toolbar:empty {
+  display: none;
+}
+.toolbar button,
+.toolbar select {
+  font-size: 11px;
+  min-height: 34px;
+  padding: 5px 10px;
+}
+.toolbar label {
+  font-size: 11px;
+  gap: 7px;
+}
+.canvas-area {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.flow-frame {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: #f6f8fb;
+}
+.react-flow {
+  --xy-background-pattern-dots-color-default: #c6d1dc;
+}
+.react-flow__panel {
+  margin: 16px;
+}
+.react-flow__panel button {
+  background: #ffffffed;
+  border-color: #d2dce7;
+  box-shadow: 0 2px 5px #20364d08;
+  font-size: 11px;
+  min-height: 34px;
+}
+.react-flow__controls {
+  box-shadow: 0 3px 10px #20364d14;
+  border: 1px solid #d7e1eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.react-flow__controls button {
+  width: 34px;
+  height: 34px;
+}
+.react-flow__minimap {
+  border: 1px solid #dce4ed;
+  border-radius: 8px;
+  overflow: hidden;
+  height: 82px;
+  width: 124px;
+}
+.canvas-key {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #7b8c9c;
+  font-size: 10px;
+  pointer-events: none;
+}
+.canvas-key span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.canvas-key i {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+.canvas-key .zero {
+  background: #276eaf;
+}
+.canvas-key .one {
+  background: #b97713;
+}
+.react-flow__edge-path {
+  filter: drop-shadow(0 1.5px 0 #f6f8fb) drop-shadow(0 -1.5px 0 #f6f8fb);
+}
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 4;
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 4.5;
+  stroke: #172e46;
+}
+.react-flow__edge.selected {
+  z-index: 10;
+}
+.react-flow__edge.wire-muted {
+  opacity: 0.18;
+}
+.react-flow__edge.wire-active .react-flow__edge-path {
+  stroke: #172e46;
+  stroke-width: 4.5;
+}
+.wire-endpoint .graph-node {
+  outline: 2px solid #7598b4;
+  outline-offset: 5px;
+}
+.edge-inspector {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: max-content;
+  max-width: calc(100% - 100px);
+  background: #fff;
+  border: 1px solid #c1d1df;
+  box-shadow: 0 6px 24px #20364d1a;
+  padding: 12px 38px 12px 14px;
+  margin: 0;
+  border-radius: 10px;
+  font-size: 11px;
+}
+.edge-inspector > strong {
+  font-size: 10px;
+  color: #6c8195;
+}
+.edge-inspector button {
+  font-size: 11px;
+}
+.edge-inspector .inspector-close {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  min-height: 24px;
+  width: 24px;
+  padding: 0;
+  border: 0;
+  font-size: 16px;
+}
+.canvas-hint {
+  flex: 0 0 auto;
+  min-height: 31px;
+  padding: 6px 20px;
+  border-top: 1px solid #d7e1eb;
+  font-size: 11px;
+  color: #688095;
+  background: #fff;
+}
+.completion {
+  flex: 0 0 auto;
+  min-height: 66px;
+  margin: 0;
+  padding: 10px 20px;
+  background: #fff;
+  gap: 14px;
+}
+.completion p {
+  font-size: 12px;
+}
+.completion .primary {
+  min-height: 40px;
+  min-width: 160px;
+  font-size: 12px;
+}
+
+/* Only domain symbols are custom. Handles, edges and all gestures remain React Flow. */
+.compact-gate {
+  width: 160px;
+  height: 124px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.compact-gate .node-title {
+  height: 28px;
+  padding: 0;
+  gap: 5px;
+  border: 0;
+  justify-content: flex-start;
+  font-size: 13px;
+}
+.compact-gate .node-title > span {
+  color: #72869a;
+  font-size: 10px;
+}
+.detail-toggle {
+  margin-left: auto;
+  padding: 1px 3px;
+  min-height: 24px;
+  font-size: 9px;
+  font-weight: 400;
+  border: 0;
+  background: transparent;
+  color: #668199;
+  white-space: nowrap;
+}
+.detail-toggle:hover {
+  color: #1f405e;
+  background: #e4ecf3;
+}
+.gate-symbol {
+  width: 160px;
+  height: 96px;
+  display: block;
+  cursor: grab;
+  overflow: visible;
+}
+.symbol-pins {
+  stroke: #8198ac;
+  stroke-width: 2;
+  fill: none;
+}
+.symbol-body {
+  fill: #fff;
+  stroke: #25465f;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 3px 3px #20364d0c);
+}
+.symbol-extra {
+  fill: none;
+}
+.symbol-name {
+  font:
+    600 15px -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  fill: #25465f;
+}
+.symbol-sine {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.symbol-value-bg {
+  fill: #f6f8fb;
+}
+.symbol-value {
+  font:
+    700 13px ui-monospace,
+    monospace;
+}
+.pin-label {
+  position: absolute;
+  left: 10px;
+  max-width: 42px;
+  font:
+    10px/16px ui-monospace,
+    monospace;
+  color: #576f84;
+  pointer-events: none;
+  background: #f6f8fbe6;
+}
+.pin-label.empty {
+  color: #a17735;
+  font-family: inherit;
+  font-size: 9px;
+}
+.compact-gate .react-flow__handle {
+  width: 18px;
+  height: 18px;
+  border-width: 3px;
+  box-shadow: 0 0 0 1px #dae3eb;
+}
+.react-flow__handle.inverted-port {
+  border-color: #b97713;
+  box-shadow: 0 0 0 2px #fff;
+}
+.react-flow__node.selected .compact-gate {
+  outline: 1px dashed #7c9bb6;
+  outline-offset: 9px;
+}
+.react-flow__node:focus-visible {
+  outline: 2px solid #477ba9;
+  outline-offset: 5px;
+}
+.gate-node {
+  width: 260px;
+}
+.gate-node .node-title {
+  padding: 7px 10px;
+  gap: 5px;
+  font-size: 14px;
+}
+.gate-node .node-title > span {
+  font-size: 11px;
+}
+.gate-node .node-title .detail-toggle {
+  font-size: 10px;
+}
+.compact-signal {
+  width: 100px;
+  height: 70px;
+  border-radius: 12px;
+  border-color: #c9d7e2;
+}
+.compact-signal .node-title {
+  width: 55px;
+  height: 38px;
+  border: 0;
+  padding: 6px 12px 0;
+  font-size: 14px;
+}
+.compact-signal .signal-switch {
+  position: absolute;
+  right: 7px;
+  top: 7px;
+  width: 34px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 1px solid #dce5ed;
+  border-radius: 7px;
+  background: #f3f7fa;
+}
+.compact-signal .signal-switch strong {
+  font-size: 22px;
+}
+.compact-signal .wave {
+  display: block;
+  width: 70px;
+  height: 22px;
+  margin: 1px auto 0;
+}
+.compact-constants {
+  width: 100px;
+  height: 94px;
+  border-radius: 12px;
+  border-color: #c9d7e2;
+}
+.compact-constants .node-title {
+  height: 22px;
+  padding: 3px 12px 0;
+  border: 0;
+  font-size: 9px;
+  font-weight: 400;
+  color: #7a8d9d;
+}
+.compact-constants .constant-row {
+  height: 34px;
+  padding: 0 14px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  font-size: 17px;
+}
+.compact-constants .constant-row span {
+  font-size: 9px;
+  font-weight: 400;
+  color: #92a0ad;
+}
+.compact-output {
+  width: 112px;
+  height: 94px;
+  border-radius: 12px;
+  border-color: #93aabd;
+  background: #eef3f7;
+  padding: 0;
+}
+.compact-output .node-title {
+  height: 28px;
+  padding: 2px 8px 0 12px;
+  justify-content: space-between;
+  border: 0;
+  font-size: 12px;
+}
+.output-reading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+.output-reading > span {
+  font-size: 10px;
+  color: #758b9d;
+}
+.compact-output .output-value {
+  margin: 0;
+  font-size: 26px;
+}
+.compact-expected {
+  font-size: 9px;
+  color: #7c8d9d;
+  line-height: 22px;
+}
+
+@media (min-width: 1600px) {
+  .lesson-panel {
+    flex-basis: 320px;
+    width: 320px;
+    padding: 32px 26px;
+  }
+}
+@media (max-width: 900px) {
+  .site-header {
+    padding: 0 14px;
+    gap: 12px;
+    height: 58px;
+    flex-basis: 58px;
+  }
+  .lesson-navigation {
+    margin-left: auto;
+  }
+  .lesson-navigation > span,
+  .lesson-navigation label {
+    font-size: 0;
+    gap: 0;
+  }
+  .lesson-navigation select {
+    font-size: 12px;
+  }
+  .lesson-panel {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    width: min(320px, calc(100% - 34px));
+    box-shadow: 10px 0 32px #20364d20;
+  }
+  .sidebar-open .canvas-area::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: #20364d18;
+    pointer-events: none;
+    z-index: 19;
+  }
+  .canvas-key span:last-child {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .page {
+    padding: 0;
+  }
+  .brand {
+    font-size: 10px;
+    gap: 7px;
+  }
+  .brand small {
+    font-size: 9px;
+  }
+  .brand-icon {
+    width: 28px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 26px;
+  }
+  .site-header {
+    gap: 8px;
+    padding: 0 10px;
+  }
+  .lesson-navigation {
+    gap: 0;
+    margin: 0 0 0 auto;
+  }
+  .lesson-navigation > span {
+    display: none;
+  }
+  .lesson-navigation select {
+    max-width: 105px;
+    min-height: 34px;
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+  .sidebar-toggle {
+    min-height: 34px;
+    font-size: 10px;
+    padding: 4px 7px;
+  }
+  .toolbar {
+    padding: 7px 10px;
+    gap: 6px;
+    min-height: 48px;
+  }
+  .toolbar button,
+  .toolbar select {
+    padding: 4px 7px;
+    font-size: 10px;
+    min-height: 32px;
+  }
+  .toolbar label {
+    width: auto;
+    margin-left: auto;
+    font-size: 10px;
+    gap: 4px;
+  }
+  .toolbar label select {
+    max-width: 110px;
+  }
+  .flow-frame {
+    height: auto;
+  }
+  .react-flow__panel {
+    margin: 10px;
+  }
+  .react-flow__panel button {
+    font-size: 10px;
+    padding: 4px 7px;
+    min-height: 32px;
+  }
+  .canvas-hint {
+    padding: 6px 12px;
+    font-size: 10px;
+  }
+  .completion {
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 12px;
+    min-height: 62px;
+    gap: 7px;
+  }
+  .completion p {
+    font-size: 10px;
+  }
+  .completion .primary {
+    width: auto;
+    min-width: 116px;
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  .edge-inspector {
+    max-width: calc(100% - 24px);
+    bottom: 62px;
+    gap: 6px;
+  }
+  .edge-inspector > strong {
+    width: 100%;
+  }
+}
+@media (max-width: 360px) {
+  .brand-icon {
+    display: none;
+  }
+  .brand {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+  }
+  .toolbar label {
+    width: 100%;
+    margin: 0;
+  }
+  .toolbar label select {
+    flex: 1;
+    max-width: none;
+  }
+}

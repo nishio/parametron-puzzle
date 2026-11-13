@@ -3,8 +3,6 @@ import { createRoot } from "react-dom/client";
 import {
   ReactFlow,
   ReactFlowProvider,
-  Handle,
-  Position,
   Background,
   Controls,
   MiniMap,
@@ -13,13 +11,13 @@ import {
   useEdgesState,
   useReactFlow,
   useNodesInitialized,
-  useNodeId,
-  useUpdateNodeInternals,
   ConnectionLineType,
+  MarkerType,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
 import "@xyflow/react/dist/style.css";
 import "./style.css";
+import "./workspace.css";
 import {
   levels,
   clone,
@@ -38,6 +36,7 @@ import {
   canConnect,
 } from "./engine.js";
 import { lessons } from "./lessons.js";
+import { nodeTypes, nodeSize, color } from "./nodes.jsx";
 
 const SAVE_KEY = "parametron-puzzle:v2";
 const readGame = () => {
@@ -54,225 +53,19 @@ const signalNode = (source) =>
     : source === "0" || source === "1"
       ? { id: "constants", handle: source }
       : { id: "input:" + source, handle: "out" };
-const outputLabel = (name) =>
-  name === "S" ? "1の位" : name === "C" || name === "Cout" ? "2の位" : "出力";
-const color = (value) =>
-  value === 1 ? "#b97713" : value === 0 ? "#276eaf" : "#92a0b0";
-function Wave({ value }) {
-  const d = Array.from(
-    { length: 121 },
-    (_, x) =>
-      `${x ? "L" : "M"}${x} ${12 + (value === 1 ? -1 : 1) * 6 * Math.sin((x * Math.PI) / 24)}`,
-  ).join(" ");
-  return (
-    <svg
-      className="wave"
-      viewBox="0 0 72 24"
-      aria-hidden="true"
-      style={{ color: color(value) }}
-    >
-      <line x1="0" y1="12" x2="72" y2="12" />
-      {value !== null && (
-        <g className="wave-moving">
-          <path d={d} />
-        </g>
-      )}
-    </svg>
-  );
-}
-function SignalNode({ data }) {
-  return (
-    <div className="graph-node signal-node" data-value={data.value}>
-      <header className="node-title">入力 {data.name}</header>
-      <button
-        className="signal-switch nodrag nopan"
-        onClick={data.toggle}
-        aria-label={`入力${data.name}を切り替える`}
-      >
-        <strong>{data.value}</strong>
-        <small>押して0 / 1を切替</small>
-      </button>
-      <Wave value={data.value} />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="out"
-        isConnectable={!data.demo}
-        aria-label={`${data.name}の出力端子`}
-        data-testid={`source-${data.name}`}
-      />
-    </div>
-  );
-}
-function ConstantsNode({ data }) {
-  return (
-    <div className="graph-node constants-node">
-      <header className="node-title">固定の信号</header>
-      {[0, 1].map((value, i) => (
-        <div
-          className="constant-row"
-          key={value}
-          style={{ color: color(value) }}
-        >
-          いつも <strong>{value}</strong>
-          <Handle
-            type="source"
-            position={Position.Right}
-            id={String(value)}
-            style={{ top: 66 + i * 46 }}
-            isConnectable={!data.demo}
-            aria-label={`固定${value}の出力端子`}
-            data-testid={`source-${value}`}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-function GateNode({ data }) {
-  const id = useNodeId(),
-    updateInternals = useUpdateNodeInternals();
-  useEffect(
-    () => updateInternals(id),
-    [id, data.gate.ports.length, data.editable, updateInternals],
-  );
-  return (
-    <div className="graph-node gate-node">
-      <header className="node-title">
-        <strong>P{data.index + 1}</strong>
-        <span>
-          {data.gate.type === "MAJ" ? "多数決" : data.gate.type} {data.cost}個分
-        </span>
-      </header>
-      <div className="gate-ports">
-        {data.gate.ports.map((edge, port) => (
-          <div className="gate-port" key={port}>
-            <Handle
-              type="target"
-              position={Position.Left}
-              id={String(port)}
-              style={{ top: 66 + port * 46 }}
-              isConnectable={!data.demo}
-              aria-label={`P${data.index + 1}の入力${port + 1}`}
-              data-testid={`target-${data.index}-${port}`}
-            />
-            <span>
-              <small>入力{port + 1}</small>
-              <b>
-                {edge.source || "未接続"}
-                {edge.inverted ? "（反転）" : ""}
-              </b>
-            </span>
-            <strong style={{ color: color(readEdge(edge, data.values)) }}>
-              {valueText(readEdge(edge, data.values))}
-            </strong>
-            {data.invert && (
-              <button
-                className={`invert-button nodrag nopan${edge.inverted ? " active" : ""}`}
-                aria-pressed={edge.inverted}
-                aria-label={`P${data.index + 1}の入力${port + 1}を反転`}
-                onClick={() => data.toggle(port)}
-              >
-                反転
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="gate-result">
-        <span>出力</span>
-        <strong style={{ color: color(data.value) }}>
-          {valueText(data.value)}
-        </strong>
-        <Wave value={data.value} />
-      </div>
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="out"
-        style={{ top: 54 + data.gate.ports.length * 46 + 22 }}
-        isConnectable={!data.demo}
-        aria-label={`P${data.index + 1}の出力端子`}
-        data-testid={`source-P${data.index + 1}`}
-      />
-      {data.editable && (
-        <div className="node-actions nodrag nopan">
-          {data.gate.type !== "MAJ" && (
-            <button
-              onClick={data.expand}
-              aria-label={`P${data.index + 1}を展開`}
-            >
-              中を開く
-            </button>
-          )}
-          <button
-            onClick={data.remove}
-            aria-label={`P${data.index + 1}を取り外す`}
-          >
-            取り外す
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-function OutputNode({ data }) {
-  return (
-    <div className="graph-node output-node">
-      <header className="node-title">
-        {outputLabel(data.name)} <small>{data.name}</small>
-      </header>
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="in"
-        isConnectable={!data.demo}
-        aria-label={`出力${data.name}の入力端子`}
-        data-testid={`target-${data.name}`}
-      />
-      <strong className="output-value" style={{ color: color(data.value) }}>
-        {valueText(data.value)}
-      </strong>
-      <Wave value={data.value} />
-      <div className="expected">この入力の正解：{data.expected}</div>
-      {data.invert && (
-        <button
-          className="invert-button nodrag nopan"
-          aria-label={`出力${data.name}を反転`}
-          aria-pressed={data.inverted}
-          onClick={data.toggle}
-        >
-          反転{data.inverted ? " ON" : ""}
-        </button>
-      )}
-    </div>
-  );
-}
-const nodeTypes = {
-  signal: SignalNode,
-  constants: ConstantsNode,
-  gate: GateNode,
-  answer: OutputNode,
-};
-function autoArrange(nodes, edges, vertical) {
+function autoArrange(nodes, edges) {
   const graph = new dagre.graphlib.Graph();
   graph.setDefaultEdgeLabel(() => ({}));
   graph.setGraph({
-    rankdir: vertical ? "TB" : "LR",
-    nodesep: 30,
-    ranksep: 90,
+    rankdir: "LR",
+    nodesep: 40,
+    ranksep: 100,
     marginx: 30,
     marginy: 30,
   });
   nodes.forEach((node) =>
     graph.setNode(node.id, {
-      width: node.measured?.width || (node.type === "gate" ? 240 : 150),
-      height:
-        node.measured?.height || (node.type === "gate"
-          ? node.data.gate.ports.length * 46 + (node.data.editable ? 150 : 114)
-          : node.type === "constants"
-            ? 140
-            : node.type === "answer" ? (node.data.invert ? 194 : 164) : 130),
+      ...nodeSize(node),
     }),
   );
   edges.forEach((edge) => graph.setEdge(edge.source, edge.target));
@@ -304,13 +97,34 @@ function autoArrange(nodes, edges, vertical) {
       .forEach((node) => graph.setEdge(node.id, gates[0].id));
   }
   dagre.layout(graph);
-  return nodes.map((node) => {
+  const arranged = nodes.map((node) => {
     const p = graph.node(node.id);
     return {
       ...node,
       position: { x: p.x - p.width / 2, y: p.y - p.height / 2 },
     };
   });
+  // Dagre has no concept of port order. Keep named inputs in reading order
+  // so A/B/C do not cross each other before reaching a single majority gate.
+  const inputs = arranged.filter(
+    (node) => node.type === "signal" || node.type === "constants",
+  );
+  if (inputs.length) {
+    const top = Math.min(...inputs.map((node) => node.position.y));
+    const bottom = Math.max(
+      ...inputs.map((node) => node.position.y + nodeSize(node).height),
+    );
+    const height =
+      inputs.reduce((sum, node) => sum + nodeSize(node).height, 0) +
+      (inputs.length - 1) * 40;
+    const x = Math.min(...inputs.map((node) => node.position.x));
+    let y = (top + bottom - height) / 2;
+    inputs.forEach((node) => {
+      node.position = { x, y };
+      y += nodeSize(node).height + 40;
+    });
+  }
+  return arranged;
 }
 function App() {
   const [game, setGame] = useState(readGame),
@@ -320,7 +134,9 @@ function App() {
     [message, setMessage] = useState(""),
     [storageOk, setStorageOk] = useState(true),
     [selectedEdge, setSelectedEdge] = useState(null),
-    [part, setPart] = useState("MAJ");
+    [part, setPart] = useState("MAJ"),
+    [sideOpen, setSideOpen] = useState(innerWidth >= 900),
+    [detailNode, setDetailNode] = useState(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]),
     [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const flow = useReactFlow(),
@@ -331,7 +147,7 @@ function App() {
   const level = levels[game.level],
     board = game.boards[level.id] || freshBoard(level),
     result = score(level, board, game.library),
-    mode = mobile ? "narrow" : "wide";
+    mode = mobile ? "symbolNarrow" : "symbolWide";
   const observed = evaluate(level, board, board.input, game.library),
     info = lessons[level.id];
   function install(next) {
@@ -439,6 +255,7 @@ function App() {
     }
   };
   const savePositions = () => {
+    if (detailNode) return;
     const positions = Object.fromEntries(
       flow.getNodes().map((node) => [node.id, { ...node.position }]),
     );
@@ -464,7 +281,7 @@ function App() {
     const base = {
       draggable: !l.demo,
       deletable: false,
-      dragHandle: ".node-title",
+      dragHandle: ".node-title, .symbol-drag",
     };
     const nextNodes = l.inputs.map((name, i) => ({
       id: "input:" + name,
@@ -473,6 +290,8 @@ function App() {
       position: { x: 0, y: 0 },
       data: {
         name,
+        detail: detailNode === "input:" + name,
+        onDetail: () => setDetailNode(null),
         value: v.values[name],
         demo: l.demo,
         toggle: () =>
@@ -503,6 +322,11 @@ function App() {
         data: {
           gate,
           index,
+          detail: detailNode === "gate:" + index,
+          onDetail: () =>
+            setDetailNode((current) =>
+              current === "gate:" + index ? null : "gate:" + index,
+            ),
           cost: partCost(gate.type, game.library),
           values: v.values,
           value: v.values["P" + (index + 1)],
@@ -515,10 +339,12 @@ function App() {
                 !board.gates[index].ports[port].inverted;
             }),
           remove: () => {
+            setDetailNode(null);
             fitNeeded.current = true;
             commit((board) => removeGate(board, index));
           },
           expand: () => {
+            setDetailNode(null);
             fitNeeded.current = true;
             commit((board) =>
               expandGate(board, index, gameRef.current.library),
@@ -535,6 +361,11 @@ function App() {
         position: { x: 0, y: 0 },
         data: {
           name,
+          detail: detailNode === "output:" + name,
+          onDetail: () =>
+            setDetailNode((current) =>
+              current === "output:" + name ? null : "output:" + name,
+            ),
           value: v.outputs[name],
           expected: expected[name],
           demo: l.demo,
@@ -557,11 +388,19 @@ function App() {
         sourceHandle: source.handle,
         target,
         targetHandle: handle,
-        type: "smoothstep",
+        type: "default",
+        pathOptions: { curvature: 0.25 },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: color(readEdge(edge, v.values)),
+          width: 14,
+          height: 14,
+        },
+        interactionWidth: 24,
         deletable: !l.demo,
         reconnectable: !l.demo,
         style: { stroke: color(readEdge(edge, v.values)), strokeWidth: 2.5 },
-        label: edge.inverted ? "反転" : undefined,
+        label: undefined,
         labelStyle: { fontSize: 12, fill: "#1e324a" },
         labelBgStyle: { fill: "#fff" },
         data: { inverted: edge.inverted },
@@ -572,15 +411,27 @@ function App() {
       gate.ports.forEach((edge, p) => add(edge, "gate:" + i, String(p))),
     );
     l.outputs.forEach((name) => add(b.outputs[name], "output:" + name, "in"));
-    const arranged = autoArrange(nextNodes, nextEdges, mobile);
+    const arranged = autoArrange(nextNodes, nextEdges);
     setNodes((previous) => {
       const existing = new Map(previous.map((node) => [node.id, node]));
-      const structural = changed || previous.length !== nextNodes.length || nextNodes.some(node=>node.type==='gate'&&existing.has(node.id)&&(existing.get(node.id).data.gate.type!==node.data.gate.type));
+      const detailChanged = nextNodes.some(
+        (node) => !!existing.get(node.id)?.data.detail !== !!node.data.detail,
+      );
+      const structural =
+        changed ||
+        detailChanged ||
+        previous.length !== nextNodes.length ||
+        nextNodes.some(
+          (node) =>
+            node.type === "gate" &&
+            existing.has(node.id) &&
+            existing.get(node.id).data.gate.type !== node.data.gate.type,
+        );
       if (structural) fitNeeded.current = true;
       return arranged.map((node) => ({
         ...node,
         position:
-          b.flow?.[mode]?.[node.id] ||
+          (!detailNode && b.flow?.[mode]?.[node.id]) ||
           (!structural && existing.has(node.id)
             ? existing.get(node.id).position
             : node.position),
@@ -594,22 +445,31 @@ function App() {
           previous.find((item) => item.id === edge.id)?.selected || false,
       })),
     );
-  }, [game, mode, mobile]);
+  }, [game, mode, mobile, detailNode]);
   useEffect(() => {
     if (initialized && fitNeeded.current) {
       fitNeeded.current = false;
       flow.fitView({
+        nodes: detailNode ? [{ id: detailNode }] : undefined,
         padding: 0.12,
-        minZoom: mobile ? 0.6 : 0.65,
-        maxZoom: 1,
+        minZoom: detailNode ? 0.85 : 0.2,
+        maxZoom: detailNode ? 1.1 : 1,
         duration: 0,
       });
     }
-  }, [initialized, nodes, flow, mobile]);
+  }, [initialized, nodes, flow, detailNode]);
+  useEffect(() => {
+    const timer = setTimeout(
+      () => flow.fitView({ padding: 0.12, maxZoom: 1, duration: 150 }),
+      80,
+    );
+    return () => clearTimeout(timer);
+  }, [sideOpen]);
   function arrange() {
-    const arranged = autoArrange(flow.getNodes(), flow.getEdges(), mobile);
+    const arranged = autoArrange(flow.getNodes(), flow.getEdges());
     setNodes(arranged);
     fitNeeded.current = true;
+    if (detailNode) return;
     commit((b) => {
       b.flow = {
         ...b.flow,
@@ -626,9 +486,11 @@ function App() {
     setMessage("");
     setSelectedEdge(null);
     setPart("MAJ");
+    setDetailNode(null);
   }
   function deleteElements({ nodes: deletedNodes, edges: deletedEdges }) {
     if (level.demo) return;
+    if (deletedNodes.length) setDetailNode(null);
     commit((b) => {
       for (const edge of deletedEdges) {
         const t = destination(edge);
@@ -678,14 +540,18 @@ function App() {
   const selected = edges.find((edge) => edge.id === selectedEdge);
   return (
     <div
-      className={`page${game.motion ? "" : " motion-paused"}`}
+      className={`page${sideOpen ? " sidebar-open" : ""}${game.motion ? "" : " motion-paused"}`}
       data-level={level.id}
     >
       <header className="site-header">
-        <a href="./">パラメトロン計算機パズル</a>
-        <a href="https://github.com/nishio/parametron-puzzle">GitHub ↗</a>
-      </header>
-      <main>
+        <a className="brand" href="./">
+          <span className="brand-icon" aria-hidden="true">
+            ∿
+          </span>
+          <span>
+            PARAMETRON<small>計算機パズル</small>
+          </span>
+        </a>
         <div className="lesson-navigation">
           <span>{level.demo ? "はじめに" : `CHAPTER ${game.level} / 5`}</span>
           <label>
@@ -712,284 +578,374 @@ function App() {
             </select>
           </label>
         </div>
-        <h1>{info.title}</h1>
-        <p className="lesson">
-          {level.demo
-            ? info.lesson
-            : level.id === "and" || level.id === "or"
-              ? "A・Bと出力は接続済みです。固定0か固定1の右の丸から、P1の空いている入力3の左の丸へつなごう。"
-              : info.lesson.replace("入力をつなごう。", "入力をつなごう。")}
-        </p>
-        <div className="goal">
-          <strong>{info.goal}</strong>
-          <span>
-            装置 {allocatedCost(board, game.library)} / {level.budget}個
-          </span>
-        </div>
-        <p className="coach" role="status">
-          {message && <span>{message} </span>}
-          {instruction}
-        </p>
-        <div className="flow-help">
-          {level.demo
-            ? "まずはBのボタンを押してみよう。左下の＋／−で拡大できます。"
-            : "● 出力から● 入力へドラッグ、または順にタップ。見出しで素子を移動。背景をドラッグ、ピンチで拡大。"}
-        </div>
-        <section className="flow-frame" aria-label="React Flow回路エディタ">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onGraphNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={connect}
-            onReconnect={(edge, c) => connect(c, edge)}
-            isValidConnection={validConnection}
-            onDelete={deleteElements}
-            onEdgeClick={(_, edge) => setSelectedEdge(edge.id)}
-            onPaneClick={() => setSelectedEdge(null)}
-            connectOnClick
-            connectionLineType={ConnectionLineType.SmoothStep}
-            snapToGrid
-            snapGrid={[16, 16]}
-            minZoom={0.3}
-            maxZoom={1.8}
-            zoomOnScroll={false}
-            zoomOnDoubleClick={false}
-            panOnDrag
-            nodesConnectable={!level.demo}
-            deleteKeyCode={["Backspace", "Delete"]}
+
+        <button
+          className="sidebar-toggle"
+          aria-expanded={sideOpen}
+          aria-controls="lesson-panel"
+          onClick={() => setSideOpen((open) => !open)}
+        >
+          {sideOpen ? "説明を畳む" : "説明とテスト"}
+        </button>
+      </header>
+      <main className="workspace">
+        {sideOpen && (
+          <aside
+            className="lesson-panel"
+            id="lesson-panel"
+            aria-label="問題の説明とテスト"
           >
-            <Background gap={20} size={1} />
-            <Controls showInteractive={false} />
-            {!mobile && game.level >= 3 && (
-              <MiniMap
-                pannable
-                zoomable
-                nodeColor={(node) =>
-                  node.type === "gate" ? "#c3d9ed" : "#e7edf3"
-                }
-              />
-            )}
-            <Panel position="top-right">
-              <button onClick={arrange} disabled={level.demo}>
-                配置を整える
-              </button>
-              <button
-                onClick={() => flow.fitView({ padding: 0.1, duration: 150 })}
-              >
-                全体を見る
-              </button>
-            </Panel>
-          </ReactFlow>
-        </section>
-        {selected && (
-          <div className="edge-inspector">
-            <strong>選択中の配線</strong>
-            <span>
-              {selected.source} → {selected.target}
-            </span>
-            {level.invert && (
-              <button
-                onClick={() =>
-                  commit((b) => {
-                    const t = destination(selected),
-                      edge = t.name
-                        ? b.outputs[t.name]
-                        : b.gates[t.index].ports[t.port];
-                    edge.inverted = !edge.inverted;
-                  })
-                }
-              >
-                0 / 1を反転
-              </button>
-            )}
-            <button onClick={() => flow.deleteElements({ edges: [selected] })}>
-              配線を外す
-            </button>
-          </div>
-        )}
-        <div className="toolbar">
-          {!level.demo && (
-            <>
-              <button
-                disabled={!undo.current[level.id]?.length}
-                onClick={() => {
-                  const previous = undo.current[level.id]?.pop();
-                  if (previous) {
-                    const next = clone(gameRef.current);
-                    next.boards[level.id] = previous;
-                    install(next);
-                    setMessage("ひとつ戻しました。");
-                  }
-                }}
-              >
-                ひとつ戻す
-              </button>
-              <button
-                onClick={() => {
-                  fitNeeded.current = true;
-                  commit(
-                    () => freshBoard(level),
-                    "この問題を最初からやり直します。",
-                  );
-                }}
-              >
-                問題を最初から
-              </button>
-            </>
-          )}
-          {game.level >= 3 && (
-            <label>
-              部品{" "}
-              <select
-                aria-label="追加する部品"
-                value={part}
-                onChange={(e) => setPart(e.target.value)}
-              >
-                {allowedTypes(level, game.library).map((type) => (
-                  <option key={type} value={type}>
-                    {type === "MAJ" ? "多数決" : type} ·{" "}
-                    {partCost(type, game.library)}個分
-                  </option>
-                ))}
-              </select>
-              <button
-                disabled={
-                  allocatedCost(board, game.library) +
-                    partCost(part, game.library) >
-                  level.budget
-                }
-                onClick={() => {
-                  fitNeeded.current = true;
-                  commit((b) => {
-                    if (!allowedTypes(level, game.library).includes(part)) return;
-                    b.gates.push(blankGate(part));
-                    delete b.flow;
-                  });
-                }}
-              >
-                追加
-              </button>
-            </label>
-          )}
-        </div>
-        <div className="completion">
-          <p data-testid="status">
-            {level.demo
-              ? `1が${level.inputs.reduce((sum, name) => sum + observed.values[name], 0)}票 → 出力${observed.outputs.Y}`
-              : result.clear
-                ? `クリア！ 使用${result.cost}個 / 自己ベスト${game.bests[level.id] ?? result.cost}個${result.cost === level.minimum ? " · 最少達成" : ""}`
-                : `${result.total}通り中${result.matched}通りが正解`}
-          </p>
-          {game.level < levels.length - 1 && (
-            <button
-              className="primary"
-              disabled={!level.demo && !result.clear}
-              onClick={() => {
-                const next = clone(gameRef.current);
-                if (level.demo) next.introDone = true;
-                next.level++;
-                install(next);
-                setPart("MAJ");
-                setMessage("");
-                setSelectedEdge(null);
-              }}
-            >
-              次へ：{lessons[levels[game.level + 1].id].short} →
-            </button>
-          )}
-        </div>
-        {!level.demo && (
-          <>
-            <h2 className="section-title">入力を変えて確かめる</h2>
-            <div className="test-cases">
-              {rows.map((item) => (
-                <button
-                  key={item.row}
-                  data-test-row={item.row}
-                  aria-pressed={item.row === board.input}
-                  className={
-                    item.pending
-                      ? "pending"
-                      : item.match
-                        ? "correct"
-                        : "incorrect"
-                  }
-                  onClick={() =>
-                    commit(
-                      (b) => {
-                        b.input = item.row;
-                      },
-                      "",
-                      false,
-                    )
-                  }
-                >
-                  <span>
-                    {level.inputs
-                      .map((name, i) => name + " " + item.inputs[i])
-                      .join(" · ")}
-                  </span>
-                  <small>
-                    {item.pending
-                      ? "未接続"
-                      : item.match
-                        ? "✓ 正解"
-                        : "× ちがう"}
-                  </small>
-                </button>
-              ))}
+            <div className="panel-eyebrow">
+              {level.demo ? "START HERE" : "YOUR MISSION"}
             </div>
-            <details className="truth-table">
-              <summary>真理値表を見る</summary>
-              <table>
-                <thead>
-                  <tr>
-                    {level.inputs.map((name) => (
-                      <th key={name}>{name}</th>
-                    ))}
-                    {level.outputs.map((name) => (
-                      <th key={name}>{name} 正解 / 現在</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
+            <h1>{info.title}</h1>
+            <p className="lesson">
+              {level.demo
+                ? info.lesson
+                : level.id === "and" || level.id === "or"
+                  ? "A・Bと出力は接続済みです。固定0か固定1の右の丸から、P1の空いている入力3の左の丸へつなごう。"
+                  : info.lesson.replace("入力をつなごう。", "入力をつなごう。")}
+            </p>
+            <div className="goal">
+              <strong>{info.goal}</strong>
+              <span>
+                装置 {allocatedCost(board, game.library)} / {level.budget}個
+              </span>
+            </div>
+            <p className="coach" role="status">
+              {message && <span>{message} </span>}
+              {instruction}
+            </p>
+
+            <p className="flow-help">
+              丸い端子を出力→入力の順に押すか、ドラッグして接続。素子をつかんで移動、背景でスクロール。「詳細」で反転・部品の中を編集できます。
+            </p>
+            {!level.demo && (
+              <>
+                <h2 className="section-title">入力を変えて確かめる</h2>
+                <div className="test-cases">
                   {rows.map((item) => (
-                    <tr key={item.row}>
-                      {item.inputs.map((value, i) => (
-                        <td key={i}>{value}</td>
-                      ))}
-                      {level.outputs.map((name) => (
-                        <td key={name}>
-                          {item.expected[name]} / {valueText(item.actual[name])}
-                        </td>
-                      ))}
-                    </tr>
+                    <button
+                      key={item.row}
+                      data-test-row={item.row}
+                      aria-pressed={item.row === board.input}
+                      className={
+                        item.pending
+                          ? "pending"
+                          : item.match
+                            ? "correct"
+                            : "incorrect"
+                      }
+                      onClick={() =>
+                        commit(
+                          (b) => {
+                            b.input = item.row;
+                          },
+                          "",
+                          false,
+                        )
+                      }
+                    >
+                      <span>
+                        {level.inputs
+                          .map((name, i) => name + " " + item.inputs[i])
+                          .join(" · ")}
+                      </span>
+                      <small>
+                        {item.pending
+                          ? "未接続"
+                          : item.match
+                            ? "✓ 正解"
+                            : "× ちがう"}
+                      </small>
+                    </button>
                   ))}
-                </tbody>
-              </table>
-            </details>
-          </>
+                </div>
+                <details className="truth-table">
+                  <summary>真理値表を見る</summary>
+                  <table>
+                    <thead>
+                      <tr>
+                        {level.inputs.map((name) => (
+                          <th key={name}>{name}</th>
+                        ))}
+                        {level.outputs.map((name) => (
+                          <th key={name}>{name} 正解 / 現在</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((item) => (
+                        <tr key={item.row}>
+                          {item.inputs.map((value, i) => (
+                            <td key={i}>{value}</td>
+                          ))}
+                          {level.outputs.map((name) => (
+                            <td key={name}>
+                              {item.expected[name]} /{" "}
+                              {valueText(item.actual[name])}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </details>
+              </>
+            )}
+
+            <footer>
+              <button
+                onClick={() => {
+                  const next = clone(gameRef.current);
+                  next.motion = !next.motion;
+                  install(next);
+                }}
+              >
+                {game.motion ? "振動を止める" : "振動を動かす"}
+              </button>
+              <p>
+                {storageOk
+                  ? "進捗・配置はこのブラウザに自動保存されます。"
+                  : "この環境では保存できません。ページを閉じるまで遊べます。"}
+              </p>
+              <a href="https://reactflow.dev/">React Flow</a>
+              <span>波形は模式表示。反転・定数・分岐は無料。</span>
+            </footer>
+          </aside>
         )}
-        <footer>
-          <button
-            onClick={() => {
-              const next = clone(gameRef.current);
-              next.motion = !next.motion;
-              install(next);
-            }}
-          >
-            {game.motion ? "振動を止める" : "振動を動かす"}
-          </button>
-          <p>
-            {storageOk
-              ? "進捗・配置はこのブラウザに自動保存されます。"
-              : "この環境では保存できません。ページを閉じるまで遊べます。"}
-          </p>
-          <a href="https://reactflow.dev/">React Flow</a>
-          <span>波形は模式表示。反転・定数・分岐は無料。</span>
-        </footer>
+        <div className="canvas-column">
+          <div className="toolbar">
+            {!level.demo && (
+              <>
+                <button
+                  disabled={!undo.current[level.id]?.length}
+                  onClick={() => {
+                    const previous = undo.current[level.id]?.pop();
+                    if (previous) {
+                      setDetailNode(null);
+                      const next = clone(gameRef.current);
+                      next.boards[level.id] = previous;
+                      install(next);
+                      setMessage("ひとつ戻しました。");
+                    }
+                  }}
+                >
+                  ひとつ戻す
+                </button>
+                <button
+                  onClick={() => {
+                    setDetailNode(null);
+                    fitNeeded.current = true;
+                    commit(
+                      () => freshBoard(level),
+                      "この問題を最初からやり直します。",
+                    );
+                  }}
+                >
+                  問題を最初から
+                </button>
+              </>
+            )}
+            {game.level >= 3 && (
+              <label>
+                部品{" "}
+                <select
+                  aria-label="追加する部品"
+                  value={part}
+                  onChange={(e) => setPart(e.target.value)}
+                >
+                  {allowedTypes(level, game.library).map((type) => (
+                    <option key={type} value={type}>
+                      {type === "MAJ" ? "多数決" : type} ·{" "}
+                      {partCost(type, game.library)}個分
+                    </option>
+                  ))}
+                </select>
+                <button
+                  disabled={
+                    allocatedCost(board, game.library) +
+                      partCost(part, game.library) >
+                    level.budget
+                  }
+                  onClick={() => {
+                    setDetailNode(null);
+                    fitNeeded.current = true;
+                    commit((b) => {
+                      if (!allowedTypes(level, game.library).includes(part))
+                        return;
+                      b.gates.push(blankGate(part));
+                      delete b.flow;
+                    });
+                  }}
+                >
+                  追加
+                </button>
+              </label>
+            )}
+          </div>
+
+          <div className="canvas-area">
+            <section className="flow-frame" aria-label="React Flow回路エディタ">
+              <ReactFlow
+                nodes={nodes.map((node) => ({
+                  ...node,
+                  className:
+                    selected &&
+                    [selected.source, selected.target].includes(node.id)
+                      ? "wire-endpoint"
+                      : undefined,
+                }))}
+                edges={edges.map((edge) => ({
+                  ...edge,
+                  className: selected
+                    ? edge.id === selected.id
+                      ? "wire-active"
+                      : "wire-muted"
+                    : undefined,
+                  zIndex: edge.id === selectedEdge ? 10 : 0,
+                }))}
+                nodeTypes={nodeTypes}
+                onNodesChange={onGraphNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={connect}
+                onReconnect={(edge, c) => connect(c, edge)}
+                isValidConnection={validConnection}
+                onDelete={deleteElements}
+                onEdgeClick={(_, edge) => setSelectedEdge(edge.id)}
+                onNodeClick={() => setSelectedEdge(null)}
+                onPaneClick={() => setSelectedEdge(null)}
+                onNodeDoubleClick={(_, node) => {
+                  if (node.type === "gate" || node.type === "answer")
+                    setDetailNode((current) =>
+                      current === node.id ? null : node.id,
+                    );
+                }}
+                connectOnClick
+                connectionLineType={ConnectionLineType.Bezier}
+                snapToGrid
+                snapGrid={[16, 16]}
+                minZoom={0.2}
+                maxZoom={1.8}
+                zoomOnScroll={false}
+                zoomOnDoubleClick={false}
+                panOnDrag
+                nodesConnectable={!level.demo}
+                deleteKeyCode={["Backspace", "Delete"]}
+              >
+                <Background gap={20} size={1} />
+                <Controls showInteractive={false} />
+                {!mobile && game.level >= 3 && (
+                  <MiniMap
+                    pannable
+                    zoomable
+                    nodeColor={(node) =>
+                      node.type === "gate" ? "#c3d9ed" : "#e7edf3"
+                    }
+                  />
+                )}
+                <Panel position="top-left" className="canvas-key">
+                  <span>
+                    <i className="zero" />0
+                  </span>
+                  <span>
+                    <i className="one" />1
+                  </span>
+                  <span>○ 端子から接続</span>
+                </Panel>
+                <Panel position="top-right">
+                  {detailNode && (
+                    <button onClick={() => setDetailNode(null)}>
+                      すべて畳む
+                    </button>
+                  )}
+                  <button onClick={arrange} disabled={level.demo}>
+                    配置を整える
+                  </button>
+                  <button
+                    onClick={() =>
+                      flow.fitView({ padding: 0.1, duration: 150 })
+                    }
+                  >
+                    全体を見る
+                  </button>
+                </Panel>
+              </ReactFlow>
+            </section>
+
+            {selected && (
+              <div className="edge-inspector">
+                <strong>選択中の配線</strong>
+                <button
+                  className="inspector-close"
+                  aria-label="配線の選択を解除"
+                  onClick={() => setSelectedEdge(null)}
+                >
+                  ×
+                </button>
+                <span>
+                  {connectionSource(selected)} →{" "}
+                  {selected.target.startsWith("gate:")
+                    ? "P" +
+                      (Number(selected.target.slice(5)) + 1) +
+                      " 入力" +
+                      (Number(selected.targetHandle) + 1)
+                    : selected.target.slice(7)}
+                </span>
+                {level.invert && (
+                  <button
+                    onClick={() =>
+                      commit((b) => {
+                        const t = destination(selected),
+                          edge = t.name
+                            ? b.outputs[t.name]
+                            : b.gates[t.index].ports[t.port];
+                        edge.inverted = !edge.inverted;
+                      })
+                    }
+                  >
+                    0 / 1を反転
+                  </button>
+                )}
+                <button
+                  onClick={() => flow.deleteElements({ edges: [selected] })}
+                >
+                  配線を外す
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="canvas-hint" role="status">
+            {message || instruction}
+          </div>
+          <div className="completion">
+            <p data-testid="status">
+              {level.demo
+                ? `1が${level.inputs.reduce((sum, name) => sum + observed.values[name], 0)}票 → 出力${observed.outputs.Y}`
+                : result.clear
+                  ? `クリア！ 使用${result.cost}個 / 自己ベスト${game.bests[level.id] ?? result.cost}個${result.cost === level.minimum ? " · 最少達成" : ""}`
+                  : `${result.total}通り中${result.matched}通りが正解`}
+            </p>
+            {game.level < levels.length - 1 && (
+              <button
+                className="primary"
+                disabled={!level.demo && !result.clear}
+                onClick={() => {
+                  const next = clone(gameRef.current);
+                  if (level.demo) next.introDone = true;
+                  next.level++;
+                  install(next);
+                  setPart("MAJ");
+                  setDetailNode(null);
+                  setMessage("");
+                  setSelectedEdge(null);
+                }}
+              >
+                次へ：{lessons[levels[game.level + 1].id].short} →
+              </button>
+            )}
+          </div>
+        </div>
       </main>
     </div>
   );
