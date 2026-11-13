@@ -21,10 +21,15 @@ export function WiringGlyph({ inverted, value = 0 }) {
   );
 }
 // The two conductors stay separate from end to end. Twisting exchanges them.
-export function WirePair({ inverted, length, value = null }) {
-  const a = length * 0.3,
-    b = length * 0.7,
-    m = length / 2;
+export function WirePair({
+  inverted,
+  length,
+  value = null,
+  twistCenter = length / 2,
+}) {
+  const a = twistCenter - length * 0.2,
+    b = twistCenter + length * 0.2,
+    m = twistCenter;
   const strand = (from, to) =>
     "M0 " +
     from +

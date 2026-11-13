@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict');
 (async()=>{
-const {levels,freshBoard,evaluate,score,usedCost,allocatedCost,normalizeBoard,normalizeGame,removeGate,expandGate,canConnect}=await import('../editor/src/engine.js');
+const {levels,freshBoard,evaluate,score,usedCost,allocatedCost,normalizeBoard,normalizeGame,removeGate,expandGate,canConnect,allowedTypes}=await import('../editor/src/engine.js');
 const edge=text=>({source:text.replace('!',''),inverted:text.startsWith('!')});
 const raw=(ports,outputs)=>({gates:ports.map(items=>({type:'MAJ',ports:items.map(edge)})),outputs:Object.fromEntries(Object.entries(outputs).map(([name,source])=>[name,edge(source)])),input:0});
 const lookup=id=>levels.find(level=>level.id===id);
@@ -12,6 +12,7 @@ const solutions={
   full:raw([['A','B','Cin'],['A','B','!Cin'],['!P1','P2','Cin']],{S:'P3',Cout:'P1'})
 };
 const library={AND:solutions.and,OR:solutions.or,XOR:solutions.xor};
+assert.deepEqual(allowedTypes(lookup('xor'),{AND:library.AND,OR:library.OR}),['MAJ','AND','OR'],'Earned AND/OR blueprints must already be available in the XOR puzzle');
 const {materializeBoard,placeBlueprint,ungroupBlueprint}=await import('../editor/src/blueprints.js');
 const twistLesson=freshBoard(lookup('twist'));
 assert.equal(score(lookup('twist'),twistLesson,library).clear,false);
@@ -142,6 +143,8 @@ assert.equal(placed.gates.length,3);
 assert.ok(placed.gates.every(gate=>gate.type==='MAJ'&&gate.ports.length===3));
 assert.equal(placed.gates[0].ports[2].source,'0');
 assert.equal(placed.gates[1].ports[2].source,'1');
+assert.equal(placed.gates[0].ports[2].fixed,true);
+assert.equal(placed.gates[1].ports[2].fixed,true);
 assert.equal(placed.gates[2].ports[0].inverted,true);
 placed.gates.forEach(gate=>gate.ports.forEach(port=>{if(port.socket)port.source=port.socket;}));
 placed.outputs.Y={...placed.blueprints[0].output};
@@ -150,6 +153,20 @@ const ungrouped=ungroupBlueprint(placed,placed.blueprints[0].id);
 assert.deepEqual(ungrouped.gates,placed.gates);
 assert.deepEqual(ungrouped.outputs,placed.outputs);
 assert.equal(score(lookup('xor'),ungrouped,{}).clear,true);
+assert.equal(normalizeBoard(lookup('xor'),ungrouped,library).gates[0].ports[2].fixed,true,'Local constants must survive save/reload after removing the blueprint frame');
+for (const [name, bit] of [['AND','0'],['OR','1']]) {
+  const stamp=placeBlueprint({gates:[],outputs:{Y:edge('')},input:0},name,library);
+  assert.equal(stamp.gates.length,1);
+  assert.equal(stamp.gates[0].type,'MAJ');
+  assert.equal(stamp.gates[0].ports[2].source,bit);
+  assert.equal(stamp.gates[0].ports[2].fixed,true,'AND/OR stamps must contain a local constant, requiring no external cable');
+  stamp.gates[0].ports.forEach(port=>{if(port.socket)port.source=port.socket;});
+  stamp.outputs.Y={...stamp.blueprints[0].output};
+  assert.equal(score(lookup(name.toLowerCase()),stamp,{}).clear,true);
+  const legacy=JSON.parse(JSON.stringify(stamp));
+  delete legacy.gates[0].ports[2].fixed;
+  assert.equal(normalizeBoard(lookup('xor'),legacy,library).gates[0].ports[2].fixed,true,'Existing saved blueprint instances must gain local constant inputs');
+}
 const second=placeBlueprint(placed,'XOR',library);
 second.gates[3].ports[2].source='1';
 assert.equal(second.gates[0].ports[2].source,'0','Blueprint instances must be independent');

@@ -60,6 +60,7 @@ const levels = [
     budget: 3,
     minimum: 3,
     reward: "XOR",
+    parts: true,
     invert: true,
     editable: true,
     title: "3個のパラメトロンでXORを作ろう",
@@ -311,6 +312,9 @@ function normalizeBoard(level, candidate, library = {}) {
     source: choices.includes(value?.source) ? value.source : "",
     inverted: level.invert === true && value?.inverted === true,
     ...(["A", "B"].includes(value?.socket) ? { socket: value.socket } : {}),
+    ...(value?.fixed === true && ["0", "1"].includes(value?.source)
+      ? { fixed: true }
+      : {}),
   });
   const base = ["", "0", "1", ...level.inputs];
   const gates = candidate.gates.map((gate, i) => {
@@ -375,6 +379,10 @@ function normalizeBoard(level, candidate, library = {}) {
       ];
     });
     if (!board.blueprints.length) delete board.blueprints;
+    for (const group of board.blueprints || [])
+      for (const index of group.gates)
+        for (const edge of gates[index].ports)
+          if (["0", "1"].includes(edge.source)) edge.fixed = true;
   }
   if (candidate.layout && typeof candidate.layout === "object") {
     board.layout = {};

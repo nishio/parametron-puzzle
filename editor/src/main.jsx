@@ -40,7 +40,11 @@ import { WiringGlyph, WiringToggle } from "./WiringToggle.jsx";
 import { nodeTypes, color } from "./nodes.jsx";
 import { autoArrange } from "./layout.js";
 import { edgeTypes } from "./PairEdge.jsx";
-import { placeBlueprint, ungroupBlueprint } from "./blueprints.js";
+import {
+  isFixedInput,
+  placeBlueprint,
+  ungroupBlueprint,
+} from "./blueprints.js";
 
 const SAVE_KEY = "parametron-puzzle:v2";
 const VIEW_PADDING = {
@@ -175,6 +179,7 @@ function App() {
           ? b.outputs[target.name]
           : b.gates[target.index].ports[target.port];
       edge.source = connectionSource(c);
+      delete edge.fixed;
     }, "配線をつなぎました。");
     setSelectedEdge(null);
   }
@@ -351,7 +356,8 @@ function App() {
     );
     const nextEdges = [];
     function add(edge, target, handle) {
-      if (!edge.source) return;
+      if (!edge.source || (target.startsWith("gate:") && isFixedInput(edge)))
+        return;
       const source = signalNode(edge.source);
       nextEdges.push({
         id: `${target}:${handle}`,

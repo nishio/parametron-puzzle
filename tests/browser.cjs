@@ -177,6 +177,18 @@ let browser;
           const target = node.querySelector(
             '[data-testid="target-' + index + "-" + port + '"]',
           );
+          const bridge = lead.querySelector(".wire-bridge");
+          const toggle = node.querySelector(
+            '[aria-label="P' + (index + 1) + "の入力" + (port + 1) + 'を反転"]',
+          );
+          if (
+            bridge &&
+            toggle &&
+            Math.abs(center(bridge).x - center(toggle).x) > 2
+          )
+            errors.push({
+              name: "input twist must be centered in its clickable area",
+            });
           for (const rail of [0, 1]) {
             const strand = lead.querySelector('[data-rail="' + rail + '"]');
             const destination =
@@ -250,6 +262,16 @@ let browser;
         const name = node.getAttribute("data-id").slice(7),
           target = node.querySelector('[data-testid^="target-"]');
         const card = node.querySelector(".output-node").getBoundingClientRect();
+        const bridge = wire.querySelector(".wire-bridge");
+        const toggle = node.querySelector(".compact-output-invert");
+        if (
+          bridge &&
+          toggle &&
+          Math.abs(center(bridge).x - center(toggle).x) > 2
+        )
+          errors.push({
+            name: "output twist must be centered in its clickable area",
+          });
         for (const rail of [0, 1]) {
           const path = wire.querySelector('[data-rail="' + rail + '"]');
           const destination = rail ^ Number(board.outputs[name].inverted);
@@ -576,6 +598,13 @@ let browser;
     await clear(page, 1);
     if (width === 1280) {
       await page.getByRole("button", { name: /次へ：XOR/ }).click();
+      assert.deepEqual(
+        await page
+          .getByRole("combobox", { name: "配置する素子・ブループリント" })
+          .locator("option")
+          .evaluateAll((options) => options.map((option) => option.value)),
+        ["MAJ", "AND", "OR"],
+      );
       for (const [i, ports] of [
         ["A", "B", "0"],
         ["A", "B", "1"],
@@ -753,6 +782,42 @@ let browser;
           .click();
       }
       assert.equal((await stored(page)).boards.full.gates.length, 0);
+      for (const [name, bit] of [
+        ["AND", "0"],
+        ["OR", "1"],
+      ]) {
+        await page
+          .getByRole("combobox", { name: "配置する素子・ブループリント" })
+          .selectOption(name);
+        await page.getByRole("button", { name: "設置", exact: true }).click();
+        const preset = (await stored(page)).boards.full;
+        assert.equal(preset.gates.length, 1);
+        assert.equal(preset.gates[0].type, "MAJ");
+        assert.equal(preset.gates[0].ports[2].source, bit);
+        assert.equal(preset.gates[0].ports[2].fixed, true);
+        await page.getByText("固定" + bit, { exact: true }).waitFor();
+        assert.equal(
+          await page.locator('.react-flow__edge[data-id="gate:0:2"]').count(),
+          0,
+          "Preset constants must not create external cables",
+        );
+        await page.reload({ waitUntil: "networkidle" });
+        assert.equal(
+          (await stored(page)).boards.full.gates[0].ports[2].fixed,
+          true,
+        );
+        await fit(page);
+        await page.screenshot({
+          path: path.join(out, name.toLowerCase() + "-preset.png"),
+          fullPage: true,
+        });
+        await page
+          .getByRole("button", {
+            name: preset.blueprints[0].id + "の回路を取り外す",
+            exact: true,
+          })
+          .click();
+      }
       // A palette entry stamps a saved raw circuit, with constants and inversions.
       await page
         .getByRole("combobox", { name: "配置する素子・ブループリント" })

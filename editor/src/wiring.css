@@ -6,7 +6,7 @@
   gap: 7px;
   min-height: 30px;
   padding: 3px 7px;
-  border: 1px solid #aeb8c1;
+  border: 0;
   border-radius: 8px;
   background: #2634400d;
   color: #536e84;
@@ -54,7 +54,7 @@
   height: 28px;
   min-height: 28px;
   padding: 0;
-  border: 1px solid #aeb8c1;
+  border: 0;
   border-radius: 8px;
   background: transparent;
   pointer-events: auto;

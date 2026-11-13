@@ -1,6 +1,7 @@
 import React, { useLayoutEffect } from "react";
 import { Position, useNodeId, useUpdateNodeInternals } from "@xyflow/react";
 import { readEdge } from "./engine.js";
+import { isFixedInput } from "./blueprints.js";
 import { PairPort as Handle } from "./PairPort.jsx";
 import { WiringToggle, WirePair } from "./WiringToggle.jsx";
 import { color, opposite, strandColor } from "./signals.js";
@@ -109,6 +110,7 @@ function ParametronSymbol({ value, gate, values, canTwist }) {
           <WirePair
             inverted={edge.inverted}
             length={64}
+            twistCenter={40}
             value={values[edge.source]}
           />
         </g>
@@ -250,7 +252,9 @@ function GateNode({ data }) {
                     className="pin-label wire-source-label"
                     style={{ top: top - 26 }}
                   >
-                    {edge.source || edge.socket || String(port + 1)}
+                    {isFixedInput(edge)
+                      ? "固定" + edge.source
+                      : edge.source || edge.socket || String(port + 1)}
                   </span>
                   <WiringToggle
                     className={
@@ -269,10 +273,12 @@ function GateNode({ data }) {
                   style={{ top: top - 24 }}
                 >
                   {edge.inverted ? "¬" : ""}
-                  {edge.source ||
-                    (edge.socket
-                      ? edge.socket + " 未接続"
-                      : "入力" + (port + 1))}
+                  {isFixedInput(edge)
+                    ? "固定" + edge.source
+                    : edge.source ||
+                      (edge.socket
+                        ? edge.socket + " 未接続"
+                        : "入力" + (port + 1))}
                 </span>
               )}
             </React.Fragment>
@@ -304,8 +310,10 @@ function GateNode({ data }) {
             <span>
               <small>入力{port + 1}</small>
               <b>
-                {edge.source ||
-                  (edge.socket ? edge.socket + " 未接続" : "未接続")}
+                {isFixedInput(edge)
+                  ? "固定信号" + edge.source
+                  : edge.source ||
+                    (edge.socket ? edge.socket + " 未接続" : "未接続")}
                 {edge.inverted ? "（ねじり）" : ""}
               </b>
             </span>
@@ -404,6 +412,7 @@ function OutputNode({ data }) {
               <WirePair
                 inverted={data.inverted}
                 length={44}
+                twistCenter={28}
                 value={data.inputValue}
               />
             </svg>

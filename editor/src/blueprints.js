@@ -3,6 +3,8 @@
 const copy = (value) =>
   value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 const empty = () => ({ source: "", inverted: false });
+export const isFixedInput = (edge) =>
+  edge?.fixed === true && ["0", "1"].includes(edge.source);
 function liveIndices(board) {
   const used = new Set();
   function visit(source) {
@@ -101,7 +103,7 @@ export function materializeBoard(board, library = {}) {
             return { ...substitute(edge, binding), socket: edge.source };
           }
           return substitute(
-            edge,
+            ["0", "1"].includes(edge.source) ? { ...edge, fixed: true } : edge,
             plan.innerMap[edge.source] || {
               source: edge.source,
               inverted: false,
