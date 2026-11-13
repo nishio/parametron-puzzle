@@ -91,14 +91,17 @@ let browser;
   async function wire(page, node, port, source) {
     await connect(page, source.replace("!", ""), `${node - 1}-${port - 1}`);
     if (source.startsWith("!")) {
-      await details(page, `P${node}`);
       await page
         .getByRole("button", {
           name: `P${node}の入力${port}を反転`,
           exact: true,
         })
         .click();
-      await collapse(page, `P${node}`);
+      assert.equal(
+        await page.locator('[data-presentation="detail"]').count(),
+        0,
+        "Inversion must work directly on compact symbols",
+      );
     }
   }
   async function clear(page, count) {
@@ -339,6 +342,35 @@ let browser;
         for (const [j, source] of ports.entries())
           await wire(page, i + 1, j + 1, source);
       await clear(page, 3);
+      const inputInvert = page.getByRole("button", {
+        name: "P1の入力1を反転",
+        exact: true,
+      });
+      await inputInvert.focus();
+      await page.keyboard.press("Enter");
+      assert.equal(
+        (await stored(page)).boards.xor.gates[0].ports[0].inverted,
+        true,
+      );
+      await page.reload({ waitUntil: "networkidle" });
+      await inputInvert.waitFor();
+      assert.equal(await inputInvert.getAttribute("aria-pressed"), "true");
+      assert.equal(
+        await page.locator('[data-presentation="detail"]').count(),
+        0,
+      );
+      await inputInvert.click();
+      await clear(page, 3);
+      const outputInvert = page.getByRole("button", {
+        name: "出力Yを反転",
+        exact: true,
+      });
+      await outputInvert.click();
+      assert.equal((await stored(page)).boards.xor.outputs.Y.inverted, true);
+      assert.equal(await outputInvert.getAttribute("aria-pressed"), "true");
+      await outputInvert.focus();
+      await page.keyboard.press("Space");
+      await clear(page, 3);
       await page.screenshot({
         path: path.join(out, "xor.png"),
         fullPage: true,
@@ -577,6 +609,38 @@ let browser;
       assert.equal(
         (await stored(mobile.page)).boards.full.gates[0].ports[0].source,
         "A",
+      );
+      const invert = mobile.page.getByRole("button", {
+        name: "P1の入力1を反転",
+        exact: true,
+      });
+      await invert.tap();
+      assert.equal(
+        (await stored(mobile.page)).boards.full.gates[0].ports[0].inverted,
+        true,
+      );
+      await invert.tap();
+      assert.equal(
+        (await stored(mobile.page)).boards.full.gates[0].ports[0].inverted,
+        false,
+      );
+      const output = mobile.page.getByRole("button", {
+        name: "出力Sを反転",
+        exact: true,
+      });
+      await output.tap();
+      assert.equal(
+        (await stored(mobile.page)).boards.full.outputs.S.inverted,
+        true,
+      );
+      await output.tap();
+      assert.equal(
+        (await stored(mobile.page)).boards.full.outputs.S.inverted,
+        false,
+      );
+      assert.equal(
+        await mobile.page.locator('[data-presentation="detail"]').count(),
+        0,
       );
       await details(mobile.page, "P1");
       assert.ok(

@@ -144,14 +144,35 @@ function GateNode({ data }) {
                 aria-label={`${name}の入力${port + 1}`}
                 data-testid={`target-${data.index}-${port}`}
               />
-              <span
-                className={`pin-label${edge.source ? "" : " empty"}`}
-                style={{ top: top - 18 }}
-              >
-                {edge.inverted ? "¬" : ""}
-                {edge.source ||
-                  (edge.socket ? edge.socket + " 未接続" : `入力${port + 1}`)}
-              </span>
+              {data.invert ? (
+                <button
+                  className="pin-label pin-invert nodrag nopan"
+                  style={{ top: top - 23 }}
+                  aria-label={`${name}の入力${port + 1}を反転`}
+                  aria-pressed={edge.inverted}
+                  title={`${name}の入力${port + 1}：${edge.source || "未接続"} · ${edge.inverted ? "反転中" : "反転なし"}`}
+                  onDoubleClick={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    data.toggle(port);
+                  }}
+                >
+                  <span>
+                    {edge.inverted ? "¬" : ""}
+                    {edge.source || edge.socket || String(port + 1)}
+                  </span>
+                  <small>反転</small>
+                </button>
+              ) : (
+                <span
+                  className={`pin-label${edge.source ? "" : " empty"}`}
+                  style={{ top: top - 18 }}
+                >
+                  {edge.inverted ? "¬" : ""}
+                  {edge.source ||
+                    (edge.socket ? edge.socket + " 未接続" : `入力${port + 1}`)}
+                </span>
+              )}
             </React.Fragment>
           );
         })}
@@ -237,6 +258,7 @@ function OutputNode({ data }) {
         position={Position.Left}
         id="in"
         style={{ top: data.detail ? "50%" : 48 }}
+        className={data.inverted ? "inverted-port" : ""}
         isConnectable={!data.demo}
         aria-label={`出力${data.name}の入力端子`}
         data-testid={`target-${data.name}`}
@@ -264,7 +286,20 @@ function OutputNode({ data }) {
       ) : (
         <div className="compact-expected">
           正解 {data.expected}
-          {data.inverted ? " · 反転" : ""}
+          {data.invert && (
+            <button
+              className="compact-output-invert nodrag nopan"
+              aria-label={`出力${data.name}を反転`}
+              aria-pressed={data.inverted}
+              onDoubleClick={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                data.toggle();
+              }}
+            >
+              {data.inverted ? "反転中" : "反転"}
+            </button>
+          )}
         </div>
       )}
     </div>

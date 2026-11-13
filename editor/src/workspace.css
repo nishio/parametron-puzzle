@@ -539,6 +539,47 @@ footer span {
   font-family: inherit;
   font-size: 9px;
 }
+.pin-invert {
+  left: 12px;
+  width: 40px;
+  min-height: 20px;
+  height: 20px;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  border: 1px solid #c5d5e2;
+  border-radius: 4px;
+  background: #fff;
+  pointer-events: auto;
+  font:
+    9px/18px ui-monospace,
+    monospace;
+  color: #4b6f8c;
+}
+.pin-invert > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pin-invert small {
+  font-family: inherit;
+  font-size: 8px;
+  flex-shrink: 0;
+}
+.pin-invert:hover,
+.compact-output-invert:hover {
+  border-color: #729ab9;
+  background: #edf4fa;
+}
+.pin-invert[aria-pressed="true"],
+.compact-output-invert[aria-pressed="true"] {
+  background: #fff0cf;
+  border-color: #c4953d;
+  color: #91631c;
+  box-shadow: none;
+}
 .compact-gate .react-flow__handle {
   width: 18px;
   height: 18px;
@@ -651,6 +692,17 @@ footer span {
   font-size: 9px;
   color: #7c8d9d;
   line-height: 22px;
+}
+.compact-output-invert {
+  min-height: 21px;
+  height: 21px;
+  padding: 0 4px;
+  margin-left: 5px;
+  font-size: 9px;
+  line-height: 19px;
+  border-radius: 4px;
+  border-color: #c5d5e2;
+  background: #fff;
 }
 
 @media (min-width: 1600px) {
