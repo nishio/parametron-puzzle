@@ -17,6 +17,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import "./style.css";
 import "./workspace.css";
+import "./wiring.css";
 import {
   levels,
   clone,
@@ -35,6 +36,7 @@ import {
   canConnect,
 } from "./engine.js";
 import { lessons } from "./lessons.js";
+import { WiringGlyph, WiringToggle } from "./WiringToggle.jsx";
 import { nodeTypes, color } from "./nodes.jsx";
 import { autoArrange } from "./layout.js";
 import { placeBlueprint, ungroupBlueprint } from "./blueprints.js";
@@ -85,6 +87,7 @@ function App() {
   const observed = evaluate(level, board, board.input, game.library),
     info = lessons[level.id];
   function install(next) {
+    next.levelId = levels[next.level].id;
     const l = levels[next.level],
       b =
         next.boards[l.id] || (next.boards[l.id] = freshBoard(l, next.library));
@@ -140,7 +143,7 @@ function App() {
     const current = gameRef.current,
       l = levels[current.level],
       b = current.boards[l.id] || freshBoard(l, current.library);
-    if (l.demo) return false;
+    if (l.demo || l.lockedWiring) return false;
     const target = destination(c),
       source = connectionSource(c);
     if (
@@ -229,7 +232,7 @@ function App() {
         detail: detailNode === "input:" + name,
         onDetail: () => setDetailNode(null),
         value: v.values[name],
-        demo: l.demo,
+        demo: l.demo || l.lockedWiring,
         toggle: () =>
           commit(
             (board) => {
@@ -247,7 +250,7 @@ function App() {
           type: "constant",
           ...base,
           position: { x: 0, y: 0 },
-          data: { value, demo: false },
+          data: { value, demo: !!l.lockedWiring },
         });
     const groupForGate = new Map();
     for (const group of b.blueprints || []) {
@@ -286,7 +289,7 @@ function App() {
         id: "gate:" + index,
         type: "gate",
         ...base,
-        deletable: game.level >= 3,
+        deletable: !!l.editable,
         ...(groupForGate.has(index)
           ? { parentId: groupForGate.get(index), extent: "parent" }
           : {}),
@@ -302,9 +305,10 @@ function App() {
           cost: partCost(gate.type, game.library),
           values: v.values,
           value: v.values["P" + (index + 1)],
-          demo: l.demo,
+          demo: l.demo || l.lockedWiring,
           invert: l.invert,
-          editable: game.level >= 3,
+          tutorial: l.tutorial,
+          editable: !!l.editable,
           toggle: (port) =>
             commit((board) => {
               board.gates[index].ports[port].inverted =
@@ -333,8 +337,8 @@ function App() {
             ),
           value: v.outputs[name],
           expected: expected[name],
-          demo: l.demo,
-          invert: l.invert,
+          demo: l.demo || l.lockedWiring,
+          invert: l.invert && !l.tutorial,
           inverted: b.outputs[name].inverted,
           toggle: () =>
             commit((board) => {
@@ -362,8 +366,8 @@ function App() {
           height: 14,
         },
         interactionWidth: 24,
-        deletable: !l.demo,
-        reconnectable: !l.demo,
+        deletable: !l.demo && !l.lockedWiring,
+        reconnectable: !l.demo && !l.lockedWiring,
         style: { stroke: color(readEdge(edge, v.values)), strokeWidth: 2.5 },
         label: undefined,
         labelStyle: { fontSize: 12, fill: "#1e324a" },
@@ -467,7 +471,7 @@ function App() {
     setDetailNode(null);
   }
   function deleteElements({ nodes: deletedNodes, edges: deletedEdges }) {
-    if (level.demo) return;
+    if (level.demo || level.lockedWiring) return;
     if (deletedNodes.length) setDetailNode(null);
     commit((b) => {
       for (const edge of deletedEdges) {
@@ -506,11 +510,15 @@ function App() {
     .find((item) => !item.edge.source);
   const instruction = level.demo
     ? "Bのスイッチを押して、多数決の結果を確かめよう。"
-    : result.clear
-      ? "クリア！ すべての入力で正しく動きました。"
-      : empty
-        ? `P${empty.index + 1}の入力${empty.port + 1}が空いています。出力端子からつないでみよう。`
-        : "真理値表の行を選んで、正解と違う場合を確かめよう。";
+    : level.tutorial
+      ? result.clear
+        ? "ねじると0と1が入れ替わりました。もう一度押すと平行に戻ります。"
+        : "P1のAの横にある2本線を押して、平行からねじりにしよう。"
+      : result.clear
+        ? "クリア！ すべての入力で正しく動きました。"
+        : empty
+          ? `P${empty.index + 1}の入力${empty.port + 1}が空いています。出力端子からつないでみよう。`
+          : "真理値表の行を選んで、正解と違う場合を確かめよう。";
   const rows = Array.from({ length: 2 ** level.inputs.length }, (_, row) => {
     const inputs = level.inputs.map(
         (_, i) => (row >> (level.inputs.length - 1 - i)) & 1,
@@ -542,7 +550,11 @@ function App() {
           </span>
         </a>
         <div className="lesson-navigation">
-          <span>{level.demo ? "はじめに" : `CHAPTER ${game.level} / 5`}</span>
+          <span>
+            {level.demo
+              ? "はじめに"
+              : `CHAPTER ${game.level} / ${levels.length - 1}`}
+          </span>
           <label>
             問題{" "}
             <select
@@ -595,6 +607,21 @@ function App() {
                   ? "A・Bと出力は接続済みです。固定0か固定1の右の丸から、P1の空いている入力3の左の丸へつなごう。"
                   : info.lesson.replace("入力をつなごう。", "入力をつなごう。")}
             </p>
+            {level.tutorial && (
+              <div className="twist-guide">
+                <div>
+                  <WiringGlyph inverted={false} />
+                  <strong>平行</strong>
+                  <small>0 → 0 / 1 → 1</small>
+                </div>
+                <span>⇄</span>
+                <div>
+                  <WiringGlyph inverted />
+                  <strong>ねじり</strong>
+                  <small>0 → 1 / 1 → 0</small>
+                </div>
+              </div>
+            )}
             <div className="goal">
               <strong>{info.goal}</strong>
               <span>
@@ -714,7 +741,7 @@ function App() {
             </section>
 
             <p className="flow-help">
-              丸い端子を出力→入力の順に押すか、ドラッグして接続。素子をつかんで移動、背景でスクロール。端子のそばの「反転」で0と1を切り替えます。「詳細」で大きく表示できます。ブループリントは保存した回路をまとめて設置する設計図です。
+              丸い端子を出力→入力の順に押すか、ドラッグして接続。素子をつかんで移動、背景でスクロール。端子のそばの2本線を押すと、平行とねじりを切り替えます。ねじると0と1が入れ替わります。「詳細」で大きく表示できます。ブループリントは保存した回路をまとめて設置する設計図です。
             </p>
 
             <footer>
@@ -763,7 +790,7 @@ function App() {
                 </button>
               </>
             )}
-            {game.level >= 3 && (
+            {!!level.editable && (
               <label>
                 置くもの{" "}
                 <select
@@ -852,7 +879,7 @@ function App() {
                 zoomOnScroll={false}
                 zoomOnDoubleClick={false}
                 panOnDrag
-                nodesConnectable={!level.demo}
+                nodesConnectable={!level.demo && !level.lockedWiring}
                 deleteKeyCode={["Backspace", "Delete"]}
               >
                 <Background gap={20} size={1} />
@@ -860,7 +887,7 @@ function App() {
                   showInteractive={false}
                   fitViewOptions={{ padding: VIEW_PADDING }}
                 />
-                {!mobile && game.level >= 3 && (
+                {!mobile && !!level.editable && (
                   <MiniMap
                     pannable
                     zoomable
@@ -917,9 +944,12 @@ function App() {
                       (Number(selected.targetHandle) + 1)
                     : selected.target.slice(7)}
                 </span>
-                {level.invert && (
-                  <button
-                    onClick={() =>
+                {level.invert && !level.tutorial && (
+                  <WiringToggle
+                    label="選択中の配線を反転"
+                    inverted={selected.data.inverted}
+                    showState
+                    onToggle={() =>
                       commit((b) => {
                         const t = destination(selected),
                           edge = t.name
@@ -928,11 +958,10 @@ function App() {
                         edge.inverted = !edge.inverted;
                       })
                     }
-                  >
-                    0 / 1を反転
-                  </button>
+                  />
                 )}
                 <button
+                  disabled={level.lockedWiring}
                   onClick={() => flow.deleteElements({ edges: [selected] })}
                 >
                   配線を外す

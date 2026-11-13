@@ -41,14 +41,27 @@ const levels = [
     target: ([a, b]) => ({ Y: a | b }),
   },
   {
+    id: "twist",
+    name: "03 · 平行とねじり",
+    inputs: ["A"],
+    outputs: ["Y"],
+    budget: 1,
+    minimum: 1,
+    invert: true,
+    tutorial: true,
+    lockedWiring: true,
+    target: ([a]) => ({ Y: 1 - a }),
+  },
+  {
     id: "xor",
-    name: "03 · XOR / 3素子",
+    name: "04 · XOR / 3素子",
     inputs: ["A", "B"],
     outputs: ["Y"],
     budget: 3,
     minimum: 3,
     reward: "XOR",
     invert: true,
+    editable: true,
     title: "3個のパラメトロンでXORを作ろう",
     lesson:
       "AとBが異なるときだけ、Yを1にします。P1などの出力を次の素子につなぎ、「反転」で0と1を入れ替えられます。",
@@ -56,12 +69,13 @@ const levels = [
   },
   {
     id: "half",
-    name: "04 · 半加算器 / 4素子以内",
+    name: "05 · 半加算器 / 4素子以内",
     inputs: ["A", "B"],
     outputs: ["S", "C"],
     budget: 4,
     minimum: 3,
     parts: true,
+    editable: true,
     invert: true,
     title: "作った回路のブループリントで、半加算器に",
     lesson:
@@ -70,12 +84,13 @@ const levels = [
   },
   {
     id: "full",
-    name: "05 · 全加算器 / 9素子以内",
+    name: "06 · 全加算器 / 9素子以内",
     inputs: ["A", "B", "Cin"],
     outputs: ["S", "Cout"],
     budget: 9,
     minimum: 3,
     parts: true,
+    editable: true,
     invert: true,
     title: "全加算器を作り、さらに素子を減らそう",
     lesson:
@@ -120,6 +135,13 @@ const freshBoard = (level, library = {}) => {
     board.outputs.Y = { source: "P1", inverted: false };
   }
   if (level.id === "xor") board.outputs.Y = { source: "P3", inverted: false };
+  if (level.id === "twist") {
+    board.gates[0].ports = ["A", "0", "1"].map((source) => ({
+      source,
+      inverted: false,
+    }));
+    board.outputs.Y = { source: "P1", inverted: false };
+  }
   if (level.id === "half") {
     board.outputs.S = { source: "P1", inverted: false };
     board.outputs.C = { source: "P2", inverted: false };
@@ -543,6 +565,7 @@ function normalizeGame(candidate) {
   const game = {
     version: VERSION,
     level: 0,
+    levelId: "intro",
     introDone: false,
     boards: {},
     library: {},
@@ -581,17 +604,19 @@ function normalizeGame(candidate) {
       board.outputs.Y = { source: "P1", inverted: false };
     }
   }
+  // Older saves used numeric chapter positions before the wiring tutorial.
+  const legacyOrder = ["intro", "and", "or", "xor", "half", "full"];
+  const savedId = candidate.levelId || legacyOrder[candidate.level];
+  const savedIndex = levels.findIndex((level) => level.id === savedId);
+  if (!candidate.levelId && savedIndex >= 4 && game.bests.or !== undefined)
+    game.bests.twist = 1;
   const unlocked = (index) =>
     index === 0 ||
     (index === 1
       ? game.introDone
       : game.bests[levels[index - 1].id] !== undefined);
-  if (
-    Number.isInteger(candidate.level) &&
-    levels[candidate.level] &&
-    unlocked(candidate.level)
-  )
-    game.level = candidate.level;
+  if (savedIndex >= 0 && unlocked(savedIndex)) game.level = savedIndex;
+  game.levelId = levels[game.level].id;
   return game;
 }
 

@@ -92,7 +92,7 @@ let browser;
     await connect(page, source.replace("!", ""), `${node - 1}-${port - 1}`);
     if (source.startsWith("!")) {
       await page
-        .getByRole("button", {
+        .getByRole("switch", {
           name: `P${node}の入力${port}を反転`,
           exact: true,
         })
@@ -332,6 +332,32 @@ let browser;
     }
     await connect(page, "1", "0-2", width < 700);
     await clear(page, 1);
+    await page.getByRole("button", { name: /次へ：平行とねじり/ }).click();
+    const twist = page.getByRole("switch", {
+      name: "P1の入力1を反転",
+      exact: true,
+    });
+    assert.equal(await twist.getAttribute("aria-checked"), "false");
+    if (width < 700) await twist.tap();
+    else await twist.click();
+    await clear(page, 1);
+    assert.equal(await twist.getAttribute("aria-checked"), "true");
+    assert.equal(await twist.locator(".wire-bridge").count(), 1);
+    await page.screenshot({
+      path: path.join(out, "twist-" + width + ".png"),
+      fullPage: true,
+    });
+    if (width < 700) await twist.tap();
+    else await twist.click();
+    assert.equal(await twist.getAttribute("aria-checked"), "false");
+    assert.equal(await twist.locator(".wire-bridge").count(), 0);
+    assert.equal(
+      await page.getByRole("button", { name: /次へ：XOR/ }).isDisabled(),
+      true,
+    );
+    await twist.focus();
+    await page.keyboard.press("Space");
+    await clear(page, 1);
     if (width === 1280) {
       await page.getByRole("button", { name: /次へ：XOR/ }).click();
       for (const [i, ports] of [
@@ -342,7 +368,7 @@ let browser;
         for (const [j, source] of ports.entries())
           await wire(page, i + 1, j + 1, source);
       await clear(page, 3);
-      const inputInvert = page.getByRole("button", {
+      const inputInvert = page.getByRole("switch", {
         name: "P1の入力1を反転",
         exact: true,
       });
@@ -354,20 +380,20 @@ let browser;
       );
       await page.reload({ waitUntil: "networkidle" });
       await inputInvert.waitFor();
-      assert.equal(await inputInvert.getAttribute("aria-pressed"), "true");
+      assert.equal(await inputInvert.getAttribute("aria-checked"), "true");
       assert.equal(
         await page.locator('[data-presentation="detail"]').count(),
         0,
       );
       await inputInvert.click();
       await clear(page, 3);
-      const outputInvert = page.getByRole("button", {
+      const outputInvert = page.getByRole("switch", {
         name: "出力Yを反転",
         exact: true,
       });
       await outputInvert.click();
       assert.equal((await stored(page)).boards.xor.outputs.Y.inverted, true);
-      assert.equal(await outputInvert.getAttribute("aria-pressed"), "true");
+      assert.equal(await outputInvert.getAttribute("aria-checked"), "true");
       await outputInvert.focus();
       await page.keyboard.press("Space");
       await clear(page, 3);
@@ -587,7 +613,7 @@ let browser;
     await context.close();
     if (width < 700) {
       const fixture = JSON.parse(JSON.stringify(blueprintGame));
-      fixture.level = 5;
+      fixture.level = 6;
       fixture.boards.full = {
         gates: [],
         outputs: {
@@ -610,7 +636,7 @@ let browser;
         (await stored(mobile.page)).boards.full.gates[0].ports[0].source,
         "A",
       );
-      const invert = mobile.page.getByRole("button", {
+      const invert = mobile.page.getByRole("switch", {
         name: "P1の入力1を反転",
         exact: true,
       });
@@ -624,7 +650,7 @@ let browser;
         (await stored(mobile.page)).boards.full.gates[0].ports[0].inverted,
         false,
       );
-      const output = mobile.page.getByRole("button", {
+      const output = mobile.page.getByRole("switch", {
         name: "出力Sを反転",
         exact: true,
       });

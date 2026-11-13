@@ -1,0 +1,97 @@
+.wiring-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 2px 5px;
+  border: 1px solid #b6cbdc;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 10px;
+  vertical-align: middle;
+}
+.wiring-toggle[aria-checked="true"] {
+  border-color: #c4953d;
+  background: #fff4dd;
+  color: #91631c;
+}
+.wiring-glyph {
+  width: 30px;
+  height: 22px;
+  display: block;
+  flex-shrink: 0;
+}
+.wiring-glyph path {
+  fill: none;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+.wiring-glyph .wire-zero {
+  stroke: #276eaf;
+}
+.wiring-glyph .wire-one {
+  stroke: #b97713;
+}
+.wiring-glyph .wire-bridge {
+  stroke: #fff;
+  stroke-width: 6;
+}
+.pin-invert.wiring-toggle {
+  width: 44px;
+  max-width: 44px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0 1px;
+  gap: 1px;
+  justify-content: space-between;
+}
+.pin-invert .wiring-glyph {
+  width: 26px;
+  height: 20px;
+}
+.pin-invert .wiring-source {
+  font-size: 9px;
+}
+.wiring-toggle.compact-output-invert {
+  padding: 0 2px;
+  min-height: 22px;
+  height: 22px;
+}
+.compact-output-invert .wiring-glyph {
+  width: 24px;
+  height: 20px;
+}
+.pin-invert.tutorial-toggle {
+  width: 54px;
+  max-width: 54px;
+  height: 25px;
+  min-height: 25px;
+  outline: 2px solid #5d91bc;
+  outline-offset: 2px;
+}
+.twist-guide {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 15px 0;
+  padding: 12px;
+  background: #f1f6fa;
+  border-radius: 8px;
+}
+.twist-guide > div {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+.twist-guide .wiring-glyph {
+  width: 52px;
+  height: 38px;
+}
+.twist-guide strong {
+  font-size: 12px;
+}
+.twist-guide small {
+  font-size: 9px;
+  color: #698197;
+}

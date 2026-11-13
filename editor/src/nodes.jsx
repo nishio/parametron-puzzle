@@ -6,6 +6,7 @@ import {
   useUpdateNodeInternals,
 } from "@xyflow/react";
 import { readEdge } from "./engine.js";
+import { WiringToggle } from "./WiringToggle.jsx";
 
 export const color = (value) =>
   value === 1 ? "#b97713" : value === 0 ? "#276eaf" : "#92a0b0";
@@ -115,7 +116,9 @@ function ParametronSymbol({ value }) {
 }
 function GateNode({ data }) {
   usePorts(data);
-  const name = `P${data.index + 1}`;
+  const name = "P" + (data.index + 1);
+  const canTwist = (port) => data.invert && (!data.tutorial || port === 0);
+  const label = (port) => name + "の入力" + (port + 1) + "を反転";
   if (!data.detail)
     return (
       <div className="graph-node compact-gate" data-presentation="symbol">
@@ -126,7 +129,7 @@ function GateNode({ data }) {
         </header>
         <ParametronSymbol value={data.value} />
         {data.gate.ports.map((edge, port) => {
-          const top = 52 + port * (data.gate.ports.length === 2 ? 48 : 24);
+          const top = 52 + port * 24;
           return (
             <React.Fragment key={port}>
               <Handle
@@ -141,36 +144,31 @@ function GateNode({ data }) {
                 }}
                 className={edge.inverted ? "inverted-port" : ""}
                 isConnectable={!data.demo}
-                aria-label={`${name}の入力${port + 1}`}
-                data-testid={`target-${data.index}-${port}`}
+                aria-label={name + "の入力" + (port + 1)}
+                data-testid={"target-" + data.index + "-" + port}
               />
-              {data.invert ? (
-                <button
-                  className="pin-label pin-invert nodrag nopan"
+              {canTwist(port) ? (
+                <WiringToggle
+                  className={
+                    "pin-label pin-invert" +
+                    (data.tutorial ? " tutorial-toggle" : "")
+                  }
                   style={{ top: top - 23 }}
-                  aria-label={`${name}の入力${port + 1}を反転`}
-                  aria-pressed={edge.inverted}
-                  title={`${name}の入力${port + 1}：${edge.source || "未接続"} · ${edge.inverted ? "反転中" : "反転なし"}`}
-                  onDoubleClick={(event) => event.stopPropagation()}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    data.toggle(port);
-                  }}
-                >
-                  <span>
-                    {edge.inverted ? "¬" : ""}
-                    {edge.source || edge.socket || String(port + 1)}
-                  </span>
-                  <small>反転</small>
-                </button>
+                  inverted={edge.inverted}
+                  label={label(port)}
+                  source={edge.source || edge.socket || String(port + 1)}
+                  onToggle={() => data.toggle(port)}
+                />
               ) : (
                 <span
-                  className={`pin-label${edge.source ? "" : " empty"}`}
+                  className={"pin-label" + (edge.source ? "" : " empty")}
                   style={{ top: top - 18 }}
                 >
                   {edge.inverted ? "¬" : ""}
                   {edge.source ||
-                    (edge.socket ? edge.socket + " 未接続" : `入力${port + 1}`)}
+                    (edge.socket
+                      ? edge.socket + " 未接続"
+                      : "入力" + (port + 1))}
                 </span>
               )}
             </React.Fragment>
@@ -195,29 +193,27 @@ function GateNode({ data }) {
               id={String(port)}
               style={{ top: 66 + port * 46 }}
               isConnectable={!data.demo}
-              aria-label={`${name}の入力${port + 1}`}
-              data-testid={`target-${data.index}-${port}`}
+              aria-label={name + "の入力" + (port + 1)}
+              data-testid={"target-" + data.index + "-" + port}
             />
             <span>
               <small>入力{port + 1}</small>
               <b>
                 {edge.source ||
                   (edge.socket ? edge.socket + " 未接続" : "未接続")}
-                {edge.inverted ? "（反転）" : ""}
+                {edge.inverted ? "（ねじり）" : ""}
               </b>
             </span>
             <strong style={{ color: color(readEdge(edge, data.values)) }}>
               {valueText(readEdge(edge, data.values))}
             </strong>
-            {data.invert && (
-              <button
-                className={`invert-button nodrag nopan${edge.inverted ? " active" : ""}`}
-                aria-pressed={edge.inverted}
-                aria-label={`${name}の入力${port + 1}を反転`}
-                onClick={() => data.toggle(port)}
-              >
-                反転
-              </button>
+            {canTwist(port) && (
+              <WiringToggle
+                inverted={edge.inverted}
+                label={label(port)}
+                onToggle={() => data.toggle(port)}
+                showState
+              />
             )}
           </div>
         ))}
@@ -235,7 +231,7 @@ function GateNode({ data }) {
       />
       {data.editable && (
         <div className="node-actions nodrag nopan">
-          <button onClick={data.remove} aria-label={`${name}を取り外す`}>
+          <button onClick={data.remove} aria-label={name + "を取り外す"}>
             取り外す
           </button>
         </div>
@@ -273,32 +269,24 @@ function OutputNode({ data }) {
         <>
           <div className="expected">この入力の正解：{data.expected}</div>
           {data.invert && (
-            <button
-              className="invert-button nodrag nopan"
-              aria-label={`出力${data.name}を反転`}
-              aria-pressed={data.inverted}
-              onClick={data.toggle}
-            >
-              反転{data.inverted ? " ON" : ""}
-            </button>
+            <WiringToggle
+              inverted={data.inverted}
+              label={"出力" + data.name + "を反転"}
+              onToggle={data.toggle}
+              showState
+            />
           )}
         </>
       ) : (
         <div className="compact-expected">
           正解 {data.expected}
           {data.invert && (
-            <button
-              className="compact-output-invert nodrag nopan"
-              aria-label={`出力${data.name}を反転`}
-              aria-pressed={data.inverted}
-              onDoubleClick={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                data.toggle();
-              }}
-            >
-              {data.inverted ? "反転中" : "反転"}
-            </button>
+            <WiringToggle
+              className="compact-output-invert"
+              inverted={data.inverted}
+              label={"出力" + data.name + "を反転"}
+              onToggle={data.toggle}
+            />
           )}
         </div>
       )}

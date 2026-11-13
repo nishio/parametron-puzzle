@@ -13,6 +13,15 @@ const solutions={
 };
 const library={AND:solutions.and,OR:solutions.or,XOR:solutions.xor};
 const {materializeBoard,placeBlueprint,ungroupBlueprint}=await import('../editor/src/blueprints.js');
+const twistLesson=freshBoard(lookup('twist'));
+assert.equal(score(lookup('twist'),twistLesson,library).clear,false);
+twistLesson.gates[0].ports[0].inverted=true;
+assert.equal(evaluate(lookup('twist'),twistLesson,0,library).outputs.Y,1);
+assert.equal(evaluate(lookup('twist'),twistLesson,1,library).outputs.Y,0);
+assert.equal(score(lookup('twist'),twistLesson,library).clear,true);
+const tutorialSave=normalizeGame({version:2,level:6,levelId:'twist',introDone:true,library,bests:{and:1,or:1},boards:{twist:twistLesson}});
+assert.equal(tutorialSave.level,3,'Chapter IDs must take precedence over old numeric positions');
+assert.equal(tutorialSave.boards.twist.gates[0].ports[0].inverted,true);
 let rows=0;
 for(const [id,board] of Object.entries(solutions)) {
   const level=lookup(id),result=score(level,board,library);
@@ -64,7 +73,9 @@ const intro=freshBoard(levels[0]);
 assert.equal(evaluate(levels[0],intro,6,library).outputs.Y,1);
 assert.equal(evaluate(levels[0],intro,1,library).outputs.Y,0);
 const restored=normalizeGame({version:2,level:5,introDone:true,library,bests:{and:1,or:1,xor:3,half:4},boards:{full:moduleFull}});
-assert.equal(restored.level,5);
+assert.equal(restored.level,6);
+assert.equal(restored.levelId,'full');
+assert.equal(restored.bests.twist,1,'Existing advanced progress must survive insertion of a new tutorial');
 assert.equal(score(lookup('full'),restored.boards.full,restored.library).clear,true);
 assert.equal(normalizeGame({version:1,level:5}).level,0);
 assert.equal(normalizeGame({version:2,level:5}).level,0);
