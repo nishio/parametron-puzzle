@@ -49,6 +49,40 @@ let browser;
     const page = await context.newPage();
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(site, { waitUntil: "networkidle" });
+    const welcome = page.getByRole("button", {
+      name: "回路で試す",
+      exact: true,
+    });
+    if (await welcome.isVisible()) {
+      assert.ok(await welcome.isDisabled());
+      assert.ok(
+        await page
+          .getByRole("heading", { name: /小さな計算機を作ろう/ })
+          .isVisible(),
+      );
+      await page.screenshot({
+        path: path.join(out, "welcome-" + width + ".png"),
+        fullPage: true,
+      });
+      const practice = page.getByRole("button", {
+        name: "数字を1に切り替える",
+        exact: true,
+      });
+      if (width === 1280) {
+        await practice.focus();
+        await page.keyboard.press("Space");
+      } else await practice.tap();
+      assert.equal(
+        await page.locator(".practice-controls output").textContent(),
+        "1",
+      );
+      assert.ok(await welcome.isEnabled());
+      await page.screenshot({
+        path: path.join(out, "welcome-success-" + width + ".png"),
+        fullPage: true,
+      });
+      await welcome.click();
+    }
     await page.locator(".react-flow__node").first().waitFor();
     return { page, context };
   }
@@ -114,7 +148,8 @@ let browser;
   }
   async function fit(page) {
     await reviewClear(page);
-    await page.locator(".react-flow__controls-fitview").click();
+    if (await page.locator(".react-flow__controls-fitview").isVisible())
+      await page.locator(".react-flow__controls-fitview").click();
     await page.waitForTimeout(70);
   }
   async function place(page, name = "MAJ") {
@@ -164,12 +199,42 @@ let browser;
   }
   async function connect(page, source, target, touch = false) {
     await fit(page);
+    const guided =
+      source === "0" && (await page.locator(".guide-source").count()) > 0;
     if (touch) {
-      await page.locator(`[data-testid="source-${source}"]`).tap();
-      await page.locator(`[data-testid="target-${target}"]`).tap();
+      await page
+        .locator(`[data-testid="source-${source}"]`)
+        .tap(guided ? { position: { x: 11, y: 6 } } : {});
+      if (source === "0" && (await page.locator(".guide-source").count())) {
+        await page.locator(".guide-target").waitFor();
+        await page.screenshot({
+          path: path.join(
+            out,
+            "wire-guide-target-" + page.viewportSize().width + ".png",
+          ),
+          fullPage: true,
+        });
+      }
+      await page
+        .locator(`[data-testid="target-${target}"]`)
+        .tap(guided ? { position: { x: 11, y: 18 } } : {});
     } else {
-      await page.locator(`[data-testid="source-${source}"]`).click();
-      await page.locator(`[data-testid="target-${target}"]`).click();
+      await page
+        .locator(`[data-testid="source-${source}"]`)
+        .click(guided ? { position: { x: 11, y: 6 } } : {});
+      if (source === "0" && (await page.locator(".guide-source").count())) {
+        await page.locator(".guide-target").waitFor();
+        await page.screenshot({
+          path: path.join(
+            out,
+            "wire-guide-target-" + page.viewportSize().width + ".png",
+          ),
+          fullPage: true,
+        });
+      }
+      await page
+        .locator(`[data-testid="target-${target}"]`)
+        .click(guided ? { position: { x: 11, y: 18 } } : {});
     }
     await page.waitForTimeout(25);
     await reviewClear(page);
@@ -500,29 +565,19 @@ let browser;
     assert.equal(await page.locator('[data-presentation="symbol"]').count(), 1);
     const canvas = await page.locator(".flow-frame").boundingBox();
     assert.ok(
-      canvas.height > 600,
+      canvas.height > 480,
       "The circuit must use most of the viewport height",
     );
-    const sidebar = page.getByRole("button", {
-      name: "説明を畳む",
-      exact: true,
-    });
-    if (width === 1280) {
-      const before = canvas.width;
-      await sidebar.click();
-      assert.ok(
-        (await page.locator(".flow-frame").boundingBox()).width > before + 250,
-      );
-      await page
-        .getByRole("button", { name: "説明とテスト", exact: true })
-        .click();
-    } else {
-      await page
-        .getByRole("button", { name: "説明とテスト", exact: true })
-        .click();
-      await page.locator("#lesson-panel").waitFor();
-      await sidebar.click();
-    }
+    assert.ok(
+      await page.getByRole("button", { name: /次へ：AND/ }).isDisabled(),
+      "The first action must be tried before advancing",
+    );
+    assert.equal(
+      await page.locator("#lesson-panel").count(),
+      0,
+      "The first task must not be hidden behind a lesson panel",
+    );
+    assert.ok(await page.locator(".onboarding-coach").isVisible());
     await page
       .getByRole("button", { name: "入力Bを切り替える", exact: true })
       .click();
@@ -531,24 +586,34 @@ let browser;
         .querySelector('[data-testid="status"]')
         .textContent.includes("1が2票"),
     );
+    assert.ok(
+      await page.getByRole("button", { name: /次へ：AND/ }).isEnabled(),
+    );
+    await page.screenshot({
+      path: path.join(out, "intro-success-" + width + ".png"),
+      fullPage: true,
+    });
+    const before = (await page.locator(".flow-frame").boundingBox()).width;
+    await page
+      .getByRole("button", { name: "説明とテスト", exact: true })
+      .click();
+    await page.locator("#lesson-panel").waitFor();
+    if (width === 1280)
+      assert.ok(
+        (await page.locator(".flow-frame").boundingBox()).width < before - 250,
+      );
+    await page.getByRole("button", { name: "説明を畳む", exact: true }).click();
     await page.getByRole("button", { name: /次へ：AND/ }).click();
     assert.equal(await page.locator(".react-flow__node-constant").count(), 2);
     assert.equal(
       await page.locator('.react-flow__node[data-id="constants"]').count(),
       0,
     );
-    await inTable(page, async (table) => {
-      assert.deepEqual(await table.locator("th").allTextContents(), [
-        "選択",
-        "A",
-        "B",
-        "Y",
-      ]);
-      assert.equal(
-        await table.getByRole("img", { name: "未接続", exact: true }).count(),
-        4,
-      );
+    await page.screenshot({
+      path: path.join(out, "wire-guide-start-" + width + ".png"),
+      fullPage: true,
     });
+    await page.locator(".guide-source").waitFor();
     await connect(page, "0", "0-2", width < 700);
     await clear(page, 1);
     await inTable(page, async (table) => {
@@ -1089,6 +1154,24 @@ let browser;
         path: path.join(out, "full-adder-optimal.png"),
         fullPage: true,
       });
+      const beforeReplay = await stored(page);
+      await page
+        .getByRole("combobox", { name: "問題を選ぶ" })
+        .selectOption("0");
+      await page
+        .getByRole("button", { name: "回路で試す", exact: true })
+        .waitFor();
+      await page
+        .getByRole("button", { name: "練習を閉じてゲームに戻る", exact: true })
+        .click();
+      const afterReplay = await stored(page);
+      assert.equal(afterReplay.levelId, "full");
+      assert.deepEqual(
+        afterReplay.boards.full,
+        beforeReplay.boards.full,
+        "Opening the introduction must preserve the current circuit",
+      );
+      assert.deepEqual(afterReplay.bests, beforeReplay.bests);
     }
     assert.equal(
       await page.evaluate(

@@ -25,6 +25,7 @@ function Source({ data, name, top, id = "out" }) {
       position={Position.Right}
       id={id}
       value={data.value}
+      className={data.guideSource ? "guide-source" : ""}
       style={{ top, background: color(data.value) }}
       isConnectable={!data.demo}
       aria-label={`${name}の出力端子`}
@@ -36,13 +37,17 @@ function SignalNode({ data }) {
   usePorts(data);
   return (
     <div
-      className="graph-node signal-node compact-signal"
+      className={
+        "graph-node signal-node compact-signal" +
+        (data.guideTarget ? " guided-signal" : "")
+      }
       data-value={data.value}
     >
       <header className="node-title">{data.name}</header>
       <button
         className="signal-switch nodrag nopan"
         onClick={data.toggle}
+        disabled={data.disabled}
         aria-label={`入力${data.name}を切り替える`}
       >
         <strong style={{ color: color(data.value) }}>{data.value}</strong>
@@ -233,7 +238,10 @@ function GateNode({ data }) {
                   ? "#fff"
                   : color(readEdge(edge, data.values)),
               }}
-              className={edge.inverted ? "inverted-port" : ""}
+              className={
+                (edge.inverted ? "inverted-port " : "") +
+                (data.guidePort === port ? "guide-target" : "")
+              }
               isConnectable={!data.demo}
               aria-label={name + "の入力" + (port + 1)}
               data-testid={"target-" + data.index + "-" + port}
@@ -284,7 +292,9 @@ function OutputNode({ data }) {
   usePorts(data);
   return (
     <div className="graph-node output-node compact-output">
-      <header className="node-title">{data.name}</header>
+      <header className="node-title">
+        {data.isExample ? "結果" : data.name}
+      </header>
       <Handle
         type="target"
         position={Position.Left}
@@ -301,7 +311,9 @@ function OutputNode({ data }) {
         </strong>
         <span>{outputLabel(data.name)}</span>
       </div>
-      <div className="compact-expected">正解 {data.expected}</div>
+      {!data.isExample && (
+        <div className="compact-expected">正解 {data.expected}</div>
+      )}
       <svg className="output-wire" viewBox="0 0 44 24" aria-hidden="true">
         {data.invert && (
           <rect

@@ -594,12 +594,21 @@ function normalizeGame(candidate) {
     level: 0,
     levelId: "intro",
     introDone: false,
+    onboarding: {
+      welcomeDone: false,
+      majorityDone: false,
+      firstWireDone: false,
+    },
     boards: {},
     library: {},
     bests: {},
   };
   if (candidate?.version !== VERSION) return game;
   game.introDone = candidate.introDone === true;
+  game.onboarding.welcomeDone =
+    game.introDone || candidate.onboarding?.welcomeDone === true;
+  game.onboarding.majorityDone =
+    game.introDone || candidate.onboarding?.majorityDone === true;
   for (const level of levels.filter((item) => item.reward)) {
     const part = normalizeBoard(level, candidate.library?.[level.reward], {});
     if (score(level, part, {}).clear) game.library[level.reward] = part;
@@ -631,6 +640,9 @@ function normalizeGame(candidate) {
       board.outputs.Y = { source: "P1", inverted: false };
     }
   }
+  game.onboarding.firstWireDone =
+    game.bests.and !== undefined ||
+    candidate.onboarding?.firstWireDone === true;
   // Older saves used numeric chapter positions before the wiring tutorial.
   const legacyOrder = ["intro", "and", "or", "xor", "half", "full"];
   const savedId = candidate.levelId || legacyOrder[candidate.level];

@@ -54,6 +54,12 @@
   line-height: 1.8;
   color: #64798c;
 }
+.clear-explanation {
+  margin: 12px 0;
+  color: #46667d;
+  font-size: 13px;
+  line-height: 1.8;
+}
 .clear-score {
   display: flex;
   align-items: baseline;

@@ -41,6 +41,7 @@ import { nodeTypes, color } from "./nodes.jsx";
 import { autoArrange, preservePlacement } from "./layout.js";
 import { edgeTypes } from "./PairEdge.jsx";
 import { ClearDialog } from "./ClearDialog.jsx";
+import { Welcome, OnboardingCoach } from "./Welcome.jsx";
 import {
   isFixedInput,
   placeBlueprint,
@@ -81,8 +82,13 @@ function App() {
     [message, setMessage] = useState(""),
     [storageOk, setStorageOk] = useState(true),
     [selectedEdge, setSelectedEdge] = useState(null),
-    [sideOpen, setSideOpen] = useState(innerWidth >= 900),
-    [clearDialog, setClearDialog] = useState(null);
+    [sideOpen, setSideOpen] = useState(
+      game.level === 0 && !game.introDone ? false : innerWidth >= 900,
+    ),
+    [clearDialog, setClearDialog] = useState(null),
+    [guideSourceSelected, setGuideSourceSelected] = useState(false);
+  const wireGuideActive = useRef(!game.onboarding.firstWireDone),
+    resumeLevel = useRef(game.level);
   const announcedClears = useRef(new Set(Object.keys(game.bests)));
   const [nodes, setNodes, onNodesChange] = useNodesState([]),
     [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -98,6 +104,12 @@ function App() {
     mode = mobile ? "blueprintNarrow" : "blueprintWide";
   const observed = evaluate(level, board, board.input, game.library),
     info = lessons[level.id];
+  const guidedIntro = level.demo && !game.introDone,
+    guidedWire = level.id === "and" && wireGuideActive.current,
+    guidedBoard = guidedIntro || guidedWire,
+    guideDone = guidedIntro
+      ? game.onboarding.majorityDone
+      : game.onboarding.firstWireDone;
   function install(next) {
     next.levelId = levels[next.level].id;
     const l = levels[next.level],
@@ -135,13 +147,25 @@ function App() {
       chapter: chapterLabel(index),
       isLast: index === levels.length - 1,
       reward: l.reward,
+      explanation:
+        l.reward === "AND"
+          ? "0の1票を加えたので、AとBが両方1のときだけ結果が1になります。"
+          : l.reward === "OR"
+            ? "1の1票を加えたので、AかBが1なら結果が1になります。"
+            : lessons[l.id].goal,
       newUnlock,
     };
   }
   function advance() {
+    if (
+      levels[gameRef.current.level].demo &&
+      !gameRef.current.onboarding.majorityDone
+    )
+      return;
     setClearDialog(null);
     const next = clone(gameRef.current);
     if (levels[next.level].demo) next.introDone = true;
+    if (levels[next.level].id === "and") wireGuideActive.current = false;
     next.level++;
     install(next);
     setMessage("");
@@ -204,7 +228,7 @@ function App() {
   }, []);
   function connect(c, oldEdge = null) {
     if (!validConnection(c)) return;
-    commit((b) => {
+    commit((b, next) => {
       if (oldEdge) {
         const old = destination(oldEdge);
         if (old?.name) b.outputs[old.name] = blankEdge();
@@ -216,6 +240,14 @@ function App() {
           : b.gates[target.index].ports[target.port];
       edge.source = connectionSource(c);
       delete edge.fixed;
+      if (
+        levels[gameRef.current.level].id === "and" &&
+        edge.source === "0" &&
+        target.index === 0 &&
+        target.port === 2
+      ) {
+        next.onboarding.firstWireDone = true;
+      }
     }, "配線をつなぎました。");
     setSelectedEdge(null);
   }
@@ -272,10 +304,17 @@ function App() {
         name,
         value: v.values[name],
         demo: l.demo || l.lockedWiring,
+        disabled: l.demo && !game.onboarding.majorityDone && name !== "B",
+        guideTarget:
+          l.demo &&
+          !game.introDone &&
+          !game.onboarding.majorityDone &&
+          name === "B",
         toggle: () =>
           commit(
-            (board) => {
+            (board, next) => {
               board.input ^= 1 << (l.inputs.length - 1 - i);
+              if (l.demo && name === "B") next.onboarding.majorityDone = true;
             },
             "",
             false,
@@ -289,7 +328,15 @@ function App() {
           type: "constant",
           ...base,
           position: { x: 0, y: 0 },
-          data: { value, demo: !!l.lockedWiring },
+          data: {
+            value,
+            demo: !!l.lockedWiring,
+            guideSource:
+              l.id === "and" &&
+              wireGuideActive.current &&
+              !game.onboarding.firstWireDone &&
+              value === 0,
+          },
         });
     const groupForGate = new Map();
     for (const group of b.blueprints || []) {
@@ -339,6 +386,13 @@ function App() {
           invert: l.invert,
           tutorial: l.tutorial,
           tutorialPort: l.tutorialPort,
+          guidePort:
+            l.id === "and" &&
+            wireGuideActive.current &&
+            !game.onboarding.firstWireDone &&
+            guideSourceSelected
+              ? 2
+              : null,
           editable: !!l.editable,
           toggle: (port) =>
             commit((board) => {
@@ -361,6 +415,7 @@ function App() {
           name,
           value: v.outputs[name],
           inputValue: v.values[b.outputs[name].source],
+          isExample: l.demo,
           expected: expected[name],
           demo: l.demo || l.lockedWiring,
           invert: l.invert && !l.tutorial,
@@ -401,6 +456,27 @@ function App() {
     );
     l.outputs.forEach((name) => add(b.outputs[name], "output:" + name, "in"));
     const arranged = autoArrange(nextNodes, nextEdges);
+    if (mobile && (l.demo || (l.id === "and" && wireGuideActive.current))) {
+      const points = l.demo
+        ? {
+            "input:A": { x: 0, y: 0 },
+            "input:B": { x: 0, y: 80 },
+            "input:C": { x: 0, y: 160 },
+            "gate:0": { x: 140, y: 60 },
+            "output:Y": { x: 140, y: 300 },
+          }
+        : {
+            "input:A": { x: 0, y: 0 },
+            "input:B": { x: 0, y: 80 },
+            "constant:0": { x: 0, y: 200 },
+            "constant:1": { x: 0, y: 280 },
+            "gate:0": { x: 140, y: 80 },
+            "output:Y": { x: 140, y: 350 },
+          };
+      arranged.forEach((node) => {
+        node.position = points[node.id] || node.position;
+      });
+    }
     const frame = document
       .querySelector(".flow-frame")
       ?.getBoundingClientRect();
@@ -431,7 +507,7 @@ function App() {
           previous.find((item) => item.id === edge.id)?.selected || false,
       })),
     );
-  }, [game, mode, mobile]);
+  }, [game, mode, mobile, guideSourceSelected]);
   useEffect(() => {
     if (initialized && placementSaveNeeded.current) {
       placementSaveNeeded.current = false;
@@ -487,6 +563,14 @@ function App() {
   function changeLevel(index) {
     setClearDialog(null);
     const next = clone(gameRef.current);
+    if (index === 0) {
+      resumeLevel.current = next.level;
+      next.introDone = false;
+      next.onboarding.welcomeDone = false;
+      next.onboarding.majorityDone = false;
+      next.boards.intro = freshBoard(levels[0]);
+      setSideOpen(false);
+    }
     next.level = index;
     install(next);
     setMessage("");
@@ -530,7 +614,9 @@ function App() {
     )
     .find((item) => !item.edge.source);
   const instruction = level.demo
-    ? "Bのスイッチを押して、多数決の結果を確かめよう。"
+    ? game.onboarding.majorityDone
+      ? "数字の多いほうが結果になります。AやCも押して、自由に試せます。"
+      : "光っているBの0を押して、結果がどう変わるか見てみよう。"
     : level.tutorial
       ? result.clear
         ? "ねじると0と1が入れ替わりました。もう一度押すと平行に戻ります。"
@@ -556,9 +642,34 @@ function App() {
     };
   });
   const selected = edges.find((edge) => edge.id === selectedEdge);
+  if (level.demo && !game.onboarding.welcomeDone)
+    return (
+      <Welcome
+        onStart={() => {
+          const next = clone(gameRef.current);
+          next.onboarding.welcomeDone = true;
+          next.boards.intro = freshBoard(levels[0]);
+          setSideOpen(false);
+          install(next);
+        }}
+        onResume={
+          resumeLevel.current > 0
+            ? () => {
+                const next = clone(gameRef.current);
+                next.level = resumeLevel.current;
+                next.introDone = true;
+                next.onboarding.welcomeDone = true;
+                next.onboarding.majorityDone = true;
+                install(next);
+                setSideOpen(innerWidth >= 900);
+              }
+            : undefined
+        }
+      />
+    );
   return (
     <div
-      className={`page${sideOpen ? " sidebar-open" : ""}`}
+      className={`page${sideOpen ? " sidebar-open" : ""}${guidedBoard ? " guided-board" : ""}`}
       data-level={level.id}
     >
       <header className="site-header">
@@ -600,14 +711,16 @@ function App() {
           </label>
         </div>
 
-        <button
-          className="sidebar-toggle"
-          aria-expanded={sideOpen}
-          aria-controls="lesson-panel"
-          onClick={() => setSideOpen((open) => !open)}
-        >
-          {sideOpen ? "説明を畳む" : "説明とテスト"}
-        </button>
+        {(!guidedBoard || guideDone) && (
+          <button
+            className="sidebar-toggle"
+            aria-expanded={sideOpen}
+            aria-controls="lesson-panel"
+            onClick={() => setSideOpen((open) => !open)}
+          >
+            {sideOpen ? "説明を畳む" : "説明とテスト"}
+          </button>
+        )}
       </header>
       <main className="workspace">
         {sideOpen && (
@@ -778,6 +891,23 @@ function App() {
           </aside>
         )}
         <div className="canvas-column">
+          {guidedBoard && (
+            <OnboardingCoach
+              kind={guidedIntro ? "signal" : "wire"}
+              done={
+                guidedIntro
+                  ? game.onboarding.majorityDone
+                  : game.onboarding.firstWireDone
+              }
+              sourceSelected={guideSourceSelected}
+              result={observed.outputs.Y}
+              votes={
+                level.inputs.filter(
+                  (name) => observed.values[name] === observed.outputs.Y,
+                ).length
+              }
+            />
+          )}
           <div className="toolbar">
             {!level.demo && (
               <>
@@ -885,6 +1015,14 @@ function App() {
                 onNodesChange={onGraphNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={connect}
+                onClickConnectStart={(_, { nodeId, handleType }) => {
+                  if (guidedWire && handleType === "source")
+                    setGuideSourceSelected(nodeId === "constant:0");
+                }}
+                onConnectStart={(_, { nodeId, handleType }) => {
+                  if (guidedWire && handleType === "source")
+                    setGuideSourceSelected(nodeId === "constant:0");
+                }}
                 onReconnect={(edge, c) => connect(c, edge)}
                 isValidConnection={validConnection}
                 onDelete={deleteElements}
@@ -904,10 +1042,12 @@ function App() {
                 deleteKeyCode={["Backspace", "Delete"]}
               >
                 <Background gap={20} size={1} />
-                <Controls
-                  showInteractive={false}
-                  fitViewOptions={{ padding: VIEW_PADDING }}
-                />
+                {(!guidedBoard || guideDone) && (
+                  <Controls
+                    showInteractive={false}
+                    fitViewOptions={{ padding: VIEW_PADDING }}
+                  />
+                )}
                 {!mobile && !!level.editable && (
                   <MiniMap
                     pannable
@@ -917,23 +1057,27 @@ function App() {
                     }
                   />
                 )}
-                <Panel position="top-left" className="canvas-key">
-                  <WiringGlyph inverted={false} />
-                  <span>2本で1信号</span>
-                  <span>端子から接続</span>
-                </Panel>
-                <Panel position="top-right">
-                  <button onClick={arrange} disabled={level.demo}>
-                    配置を整える
-                  </button>
-                  <button
-                    onClick={() =>
-                      flow.fitView({ padding: VIEW_PADDING, duration: 150 })
-                    }
-                  >
-                    全体を見る
-                  </button>
-                </Panel>
+                {(!guidedBoard || guideDone) && (
+                  <Panel position="top-left" className="canvas-key">
+                    <WiringGlyph inverted={false} />
+                    <span>2本で1信号</span>
+                    <span>端子から接続</span>
+                  </Panel>
+                )}
+                {(!guidedBoard || guideDone) && (
+                  <Panel position="top-right">
+                    <button onClick={arrange} disabled={level.demo}>
+                      配置を整える
+                    </button>
+                    <button
+                      onClick={() =>
+                        flow.fitView({ padding: VIEW_PADDING, duration: 150 })
+                      }
+                    >
+                      全体を見る
+                    </button>
+                  </Panel>
+                )}
               </ReactFlow>
             </section>
 
@@ -988,7 +1132,9 @@ function App() {
           <div className="completion">
             <p data-testid="status">
               {level.demo
-                ? `1が${level.inputs.reduce((sum, name) => sum + observed.values[name], 0)}票 → 出力${observed.outputs.Y}`
+                ? game.onboarding.majorityDone
+                  ? `1が${level.inputs.reduce((sum, name) => sum + observed.values[name], 0)}票 → 出力${observed.outputs.Y}`
+                  : "まずは、Bの数字を押してみよう"
                 : result.clear
                   ? `クリア！ 使用${result.cost}個 / 自己ベスト${game.bests[level.id] ?? result.cost}個${result.cost === level.minimum ? " · 理論最小クリア" : ""}`
                   : `${result.total}通り中${result.matched}通りが正解`}
@@ -1006,7 +1152,9 @@ function App() {
             {game.level < levels.length - 1 && (
               <button
                 className="primary"
-                disabled={!level.demo && !result.clear}
+                disabled={
+                  level.demo ? !game.onboarding.majorityDone : !result.clear
+                }
                 onClick={advance}
               >
                 次へ：{lessons[levels[game.level + 1].id].short} →

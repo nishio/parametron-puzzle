@@ -24,6 +24,7 @@ export function ClearDialog({ completion, nextName, onClose, onNext }) {
           {completion.name} {optimal ? "理論最小クリア！" : "クリア！"}
         </h2>
         <p id="clear-summary">すべての入力で正しく動きました。</p>
+        <p className="clear-explanation">{completion.explanation}</p>
         <p className="clear-score">
           パラメトロン <strong>{completion.cost}</strong>個
           {completion.cost === completion.minimum && (
@@ -52,8 +53,10 @@ export function ClearDialog({ completion, nextName, onClose, onNext }) {
                   : "ブループリントを獲得済み"}
               </h3>
               <p>
-                作った回路を保存しました。「{completion.reward}
-                」ボタンで、固定信号も含めて設置できます。
+                作った回路を保存しました。
+                {completion.reward === "XOR" ? "半加算器" : "XOR"}
+                の課題から、画面上部の「{completion.reward}
+                」ボタンで再利用できます。固定信号も設定済みです。
               </p>
             </div>
           </section>
