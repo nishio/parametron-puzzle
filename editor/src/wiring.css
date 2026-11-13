@@ -55,24 +55,24 @@
   padding: 0;
   border: 0;
   border-radius: 8px;
-  background: #f6f8fb;
+  background: transparent;
   pointer-events: auto;
   box-shadow: none;
 }
 .pin-invert.wiring-toggle:hover {
-  background: #f6f8fb;
+  background: transparent;
 }
 .pin-invert .wiring-glyph {
   width: 42px;
   height: 28px;
 }
 .pin-invert.wiring-toggle[aria-checked="true"] {
-  background: #f6f8fb;
+  background: transparent;
   border: 0;
   box-shadow: none;
 }
 .pin-invert.wiring-toggle[aria-checked="true"]:hover {
-  background: #f6f8fb;
+  background: transparent;
 }
 .pin-invert.tutorial-toggle {
   outline: none;
@@ -104,21 +104,50 @@
 }
 .wiring-toggle.compact-output-invert {
   position: absolute;
-  left: -56px;
+  left: -30px;
   top: 34px;
   margin: 0;
-  width: 40px;
+  width: 28px;
   min-height: 28px;
   height: 28px;
   padding: 0;
-  background: #f6f8fb;
+  background: transparent;
 }
 .compact-output-invert .wiring-glyph {
   width: 38px;
   height: 27px;
 }
 .wiring-toggle.compact-output-invert:hover {
-  background: #f6f8fb;
+  background: transparent;
+}
+.wire-pair path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.wire-pair .wire-zero {
+  stroke: #365f7d;
+}
+.wire-pair .wire-one {
+  stroke: #b48647;
+}
+.wire-pair .wire-bridge {
+  stroke: #f6f8fb;
+  stroke-width: 5;
+}
+.output-wire {
+  position: absolute;
+  left: -44px;
+  top: 36px;
+  width: 44px;
+  height: 24px;
+  overflow: visible;
+  pointer-events: none;
+}
+.output-wire .single-lead {
+  fill: none;
+  stroke: #8a9fb0;
+  stroke-width: 1.5;
 }
 .pin-invert:hover .wiring-glyph,
 .compact-output-invert:hover .wiring-glyph {

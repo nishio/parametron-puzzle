@@ -126,6 +126,128 @@ let browser;
         .getByRole("button", { name: "説明を畳む", exact: true })
         .click();
   }
+  async function checkTerminals(page) {
+    await fit(page);
+    const errors = await page.evaluate(() => {
+      const issues = [];
+      const game = JSON.parse(localStorage.getItem("parametron-puzzle:v2"));
+      const board = game.boards[game.levelId];
+      const point = (path, end = false) => {
+        const p = path.getPointAtLength(end ? path.getTotalLength() : 0),
+          m = path.getScreenCTM();
+        return {
+          x: m.a * p.x + m.c * p.y + m.e,
+          y: m.b * p.x + m.d * p.y + m.f,
+        };
+      };
+      const center = (element) => {
+        const r = element.getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      };
+      const equal = (name, a, b) => {
+        if (Math.hypot(a.x - b.x, a.y - b.y) > 2) issues.push({ name, a, b });
+      };
+      for (const node of document.querySelectorAll(".react-flow__node-gate")) {
+        if (!node.querySelector('[data-presentation="symbol"]')) continue;
+        const index = Number(node.getAttribute("data-id").slice(5));
+        const circle = node.querySelector(".symbol-body circle"),
+          m = circle.getScreenCTM();
+        const c = {
+          x: m.a * Number(circle.getAttribute("cx")) + m.e,
+          y: m.d * Number(circle.getAttribute("cy")) + m.f,
+        };
+        const radius = Math.hypot(m.a, m.b) * Number(circle.getAttribute("r"));
+        for (const lead of node.querySelectorAll(".parametron-lead")) {
+          const port = lead.getAttribute("data-port");
+          const terminal = node.querySelector(
+            '[data-testid="target-' + index + "-" + port + '"]',
+          );
+          for (const path of lead.querySelectorAll(
+            ".wire-zero,.wire-one,.single-lead",
+          )) {
+            equal(
+              "input port " + index + ":" + port,
+              point(path),
+              center(terminal),
+            );
+            const end = point(path, true);
+            if (Math.abs(Math.hypot(end.x - c.x, end.y - c.y) - radius) > 2)
+              issues.push({
+                name: "body connection " + index + ":" + port,
+                end,
+                c,
+                radius,
+              });
+          }
+        }
+        equal(
+          "output port " + index,
+          point(node.querySelector(".symbol-output-lead"), true),
+          center(
+            node.querySelector('[data-testid="source-P' + (index + 1) + '"]'),
+          ),
+        );
+      }
+      for (const node of document.querySelectorAll(
+        ".react-flow__node-answer",
+      )) {
+        const wire = node.querySelector(".output-wire");
+        if (!wire) continue;
+        const target = node.querySelector('[data-testid^="target-"]');
+        const card = node.querySelector(".output-node").getBoundingClientRect();
+        for (const path of wire.querySelectorAll(
+          ".wire-zero,.wire-one,.single-lead",
+        )) {
+          equal("answer port", point(path), center(target));
+          equal("answer body", point(path, true), {
+            x: card.left,
+            y: center(target).y,
+          });
+        }
+      }
+      for (const edge of document.querySelectorAll(".react-flow__edge")) {
+        const id = edge.getAttribute("data-id");
+        let source, target;
+        const gate = /^gate:([0-9]+):([0-9]+)$/.exec(id),
+          output = /^output:(.+):in$/.exec(id);
+        if (gate) {
+          source = board.gates[Number(gate[1])].ports[Number(gate[2])].source;
+          target = "target-" + gate[1] + "-" + gate[2];
+        } else if (output) {
+          source = board.outputs[output[1]].source;
+          target = "target-" + output[1];
+        } else continue;
+        const path = edge.querySelector(".react-flow__edge-path");
+        for (const [end, terminal] of [
+          [false, "source-" + source],
+          [true, target],
+        ]) {
+          const r = document
+            .querySelector('[data-testid="' + terminal + '"]')
+            .getBoundingClientRect();
+          const p = point(path, end);
+          if (
+            p.x < r.left - 2 ||
+            p.x > r.right + 2 ||
+            Math.abs(p.y - r.y - r.height / 2) > 2
+          )
+            issues.push({
+              name: "external " + id,
+              terminal,
+              p,
+              r: { left: r.left, right: r.right, y: r.y, height: r.height },
+            });
+        }
+      }
+      return issues;
+    });
+    assert.deepEqual(
+      errors,
+      [],
+      "Visible leads and React Flow wires must meet the actual ports without gaps",
+    );
+    assert.equal(await page.locator(".gate-symbol .symbol-name").count(), 0);
+  }
   for (const width of [1280, 390, 320]) {
     const { page, context } = await open(width);
     await page.screenshot({
@@ -342,7 +464,13 @@ let browser;
     else await twist.click();
     await clear(page, 1);
     assert.equal(await twist.getAttribute("aria-checked"), "true");
-    assert.equal(await twist.locator(".wire-bridge").count(), 1);
+    await checkTerminals(page);
+    assert.equal(
+      await page
+        .locator('.parametron-lead[data-port="0"] .wire-bridge')
+        .count(),
+      1,
+    );
     await page.screenshot({
       path: path.join(out, "twist-" + width + ".png"),
       fullPage: true,
@@ -350,7 +478,13 @@ let browser;
     if (width < 700) await twist.tap();
     else await twist.click();
     assert.equal(await twist.getAttribute("aria-checked"), "false");
-    assert.equal(await twist.locator(".wire-bridge").count(), 0);
+    await checkTerminals(page);
+    assert.equal(
+      await page
+        .locator('.parametron-lead[data-port="0"] .wire-bridge')
+        .count(),
+      0,
+    );
     assert.equal(
       await page.getByRole("button", { name: /次へ：XOR/ }).isDisabled(),
       true,
@@ -393,6 +527,7 @@ let browser;
       });
       await outputInvert.click();
       assert.equal((await stored(page)).boards.xor.outputs.Y.inverted, true);
+      await checkTerminals(page);
       assert.equal(await outputInvert.getAttribute("aria-checked"), "true");
       await outputInvert.focus();
       await page.keyboard.press("Space");
@@ -452,6 +587,7 @@ let browser;
               await wire(page, i + 1, p + 1, bindings[g][edge.socket]);
       await clear(page, 9);
       blueprintGame = await stored(page);
+      await checkTerminals(page);
       await fit(page);
       await page.screenshot({
         path: path.join(out, "full-adder.png"),

@@ -6,7 +6,7 @@ import {
   useUpdateNodeInternals,
 } from "@xyflow/react";
 import { readEdge } from "./engine.js";
-import { WiringToggle } from "./WiringToggle.jsx";
+import { WiringToggle, WirePair } from "./WiringToggle.jsx";
 
 export const color = (value) =>
   value === 1 ? "#b97713" : value === 0 ? "#276eaf" : "#92a0b0";
@@ -85,7 +85,7 @@ function ConstantNode({ data }) {
     </div>
   );
 }
-function ParametronSymbol({ value }) {
+function ParametronSymbol({ value, gate, canTwist }) {
   return (
     <svg
       className="gate-symbol symbol-drag"
@@ -93,19 +93,33 @@ function ParametronSymbol({ value }) {
       aria-hidden="true"
     >
       <g className="symbol-pins">
-        <path d="M0 30H104 M0 62H84 M0 94H104 M156 62H190" />
+        {gate.ports.map((edge, port) => {
+          const y = 30 + port * 32;
+          const end = 120 - Math.sqrt(36 * 36 - (y - 62) * (y - 62));
+          return (
+            <g
+              className="parametron-lead"
+              data-port={port}
+              key={port}
+              transform={`translate(0 ${y - 12})`}
+            >
+              {canTwist(port) ? (
+                <WirePair inverted={edge.inverted} length={end} />
+              ) : (
+                <path className="single-lead" d={`M0 12H${end}`} />
+              )}
+            </g>
+          );
+        })}
+        <path className="symbol-output-lead" d="M156 62H190" />
       </g>
       <g className="symbol-body">
         <circle cx="120" cy="62" r="36" />
       </g>
-      <text className="symbol-name" x="120" y="68" textAnchor="middle">
-        ≥2
-      </text>
-      <circle className="symbol-value-bg" cx="173" cy="62" r="11" />
       <text
         className="symbol-value"
         x="173"
-        y="66"
+        y="48"
         textAnchor="middle"
         style={{ fill: color(value) }}
       >
@@ -127,7 +141,11 @@ function GateNode({ data }) {
           <span>パラメトロン</span>
           <DetailButton data={data} name={name} />
         </header>
-        <ParametronSymbol value={data.value} />
+        <ParametronSymbol
+          value={data.value}
+          gate={data.gate}
+          canTwist={canTwist}
+        />
         {data.gate.ports.map((edge, port) => {
           const top = 58 + port * 32;
           return (
@@ -161,6 +179,7 @@ function GateNode({ data }) {
                     }
                     style={{ top: top - 14 }}
                     inverted={edge.inverted}
+                    hideGlyph
                     label={label(port)}
                     onToggle={() => data.toggle(port)}
                   />
@@ -259,7 +278,10 @@ function OutputNode({ data }) {
         type="target"
         position={Position.Left}
         id="in"
-        style={{ top: data.detail ? "50%" : 48 }}
+        style={{
+          top: data.detail ? "50%" : 48,
+          left: data.detail ? undefined : -44,
+        }}
         className={data.inverted ? "inverted-port" : ""}
         isConnectable={!data.demo}
         aria-label={`出力${data.name}の入力端子`}
@@ -287,9 +309,20 @@ function OutputNode({ data }) {
         <>
           <div className="compact-expected">正解 {data.expected}</div>
           {data.invert && (
+            <svg className="output-wire" viewBox="0 0 44 24" aria-hidden="true">
+              <WirePair inverted={data.inverted} length={44} />
+            </svg>
+          )}
+          {!data.invert && (
+            <svg className="output-wire" viewBox="0 0 44 24" aria-hidden="true">
+              <path className="single-lead" d="M0 12H44" />
+            </svg>
+          )}
+          {data.invert && (
             <WiringToggle
               className="compact-output-invert"
               inverted={data.inverted}
+              hideGlyph
               label={"出力" + data.name + "を反転"}
               onToggle={data.toggle}
             />
