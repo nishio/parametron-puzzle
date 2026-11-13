@@ -111,6 +111,18 @@ let browser;
       { timeout: 3000 },
     );
   }
+  async function inTable(page, action) {
+    const closed = !(await page.locator("#lesson-panel").count());
+    if (closed)
+      await page
+        .getByRole("button", { name: "説明とテスト", exact: true })
+        .click();
+    await action(page.locator(".truth-table"));
+    if (closed)
+      await page
+        .getByRole("button", { name: "説明を畳む", exact: true })
+        .click();
+  }
   for (const width of [1280, 390, 320]) {
     const { page, context } = await open(width);
     await page.screenshot({
@@ -118,6 +130,13 @@ let browser;
       fullPage: true,
     });
     assert.equal(await page.locator(".react-flow__attribution").count(), 1);
+    assert.equal(
+      await page
+        .locator(".wave, .wave-moving, .symbol-sine, .test-cases")
+        .count(),
+      0,
+    );
+    assert.equal(await page.getByRole("button", { name: /振動/ }).count(), 0);
     assert.equal(await page.locator('[data-presentation="symbol"]').count(), 1);
     const canvas = await page.locator(".flow-frame").boundingBox();
     assert.ok(
@@ -153,8 +172,49 @@ let browser;
         .textContent.includes("1が2票"),
     );
     await page.getByRole("button", { name: /次へ：AND/ }).click();
+    await inTable(page, async (table) => {
+      assert.deepEqual(await table.locator("th").allTextContents(), [
+        "選択",
+        "A",
+        "B",
+        "Y",
+      ]);
+      assert.equal(
+        await table.getByRole("img", { name: "未接続", exact: true }).count(),
+        4,
+      );
+    });
     await connect(page, "0", "0-2", width < 700);
     await clear(page, 1);
+    await inTable(page, async (table) => {
+      const cell = table.locator('[data-test-row="3"] td').nth(1);
+      if (width < 700) await cell.tap();
+      else await cell.click();
+      assert.equal((await stored(page)).boards.and.input, 3);
+      assert.equal((await stored(page)).motion, undefined);
+      await page.waitForFunction(
+        () =>
+          document.querySelector(
+            '.react-flow__node[data-id="output:Y"] .output-value',
+          ).textContent === "1",
+      );
+      assert.equal(
+        await table
+          .locator('[data-test-row="3"]')
+          .getAttribute("data-selected"),
+        "true",
+      );
+      assert.equal(
+        await table.getByRole("img", { name: "一致", exact: true }).count(),
+        4,
+      );
+      await table.screenshot({
+        path: path.join(out, `truth-table-${width}.png`),
+      });
+      await table.locator('[data-test-row="0"] button').focus();
+      await page.keyboard.press("Enter");
+      assert.equal((await stored(page)).boards.and.input, 0);
+    });
     const circuit = JSON.stringify((await stored(page)).boards.and.gates);
     await details(page, "P1");
     assert.equal(await page.locator('[data-presentation="detail"]').count(), 1);
@@ -214,6 +274,19 @@ let browser;
       fullPage: true,
     });
     await page.getByRole("button", { name: /次へ：OR/ }).click();
+    if (width === 1280) {
+      await connect(page, "0", "0-2");
+      await inTable(page, async (table) => {
+        assert.equal(
+          await table.getByRole("img", { name: "不一致", exact: true }).count(),
+          2,
+        );
+        assert.equal(
+          await table.locator('[data-test-row="1"] td').last().textContent(),
+          "1❌",
+        );
+      });
+    }
     await connect(page, "1", "0-2", width < 700);
     await clear(page, 1);
     if (width === 1280) {
@@ -245,6 +318,20 @@ let browser;
         fullPage: true,
       });
       await clear(page, 4);
+      await inTable(page, async (table) => {
+        assert.deepEqual(await table.locator("th").allTextContents(), [
+          "選択",
+          "A",
+          "B",
+          "S",
+          "C",
+        ]);
+        assert.equal(
+          await table.locator("tbody tr").first().locator("td").count(),
+          5,
+          "One compact column per output",
+        );
+      });
       await page.getByRole("button", { name: /次へ：全加算器/ }).click();
       const full = (await stored(page)).boards.full;
       assert.equal(full.gates.length, 9);

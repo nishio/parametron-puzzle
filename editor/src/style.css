@@ -245,10 +245,6 @@ h1 {
   font-size: 10px;
   font-weight: 400;
 }
-.signal-node > .wave {
-  display: block;
-  margin: 2px auto 8px;
-}
 .constant-row {
   height: 46px;
   padding: 10px 15px;
@@ -345,10 +341,6 @@ h1 {
   line-height: 1.3;
   margin-top: 7px;
 }
-.output-node .wave {
-  display: block;
-  margin: 3px auto;
-}
 .expected {
   font-size: 10px;
   color: #6a7d90;
@@ -356,31 +348,6 @@ h1 {
 }
 .output-node > .invert-button {
   margin: auto;
-}
-.wave {
-  width: 72px;
-  height: 24px;
-  overflow: hidden;
-}
-.wave line {
-  stroke: #cfdbe6;
-  stroke-width: 1;
-}
-.wave path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-}
-.wave-moving {
-  animation: travel 1.8s linear infinite;
-}
-.motion-paused .wave-moving {
-  animation-play-state: paused;
-}
-@keyframes travel {
-  to {
-    transform: translateX(-48px);
-  }
 }
 .toolbar {
   display: flex;
@@ -436,23 +403,6 @@ h1 {
 .section-title {
   font-size: 15px;
   margin: 14px 0 9px;
-}
-.test-cases {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px;
-}
-.test-cases button {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-start;
-  text-align: left;
-  font-size: 12px;
-  min-height: 68px;
-}
-.test-cases small {
-  font-size: 11px;
 }
 .correct {
   background: #e9f5ee;
@@ -542,9 +492,6 @@ footer span {
   .primary {
     width: 100%;
   }
-  .test-cases {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .react-flow__panel button {
     font-size: 10px;
     min-height: 32px;
@@ -554,10 +501,5 @@ footer span {
   }
   footer span {
     margin-left: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wave-moving {
-    animation: none;
   }
 }

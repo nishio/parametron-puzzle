@@ -509,7 +509,7 @@ function App() {
       ? "クリア！ すべての入力で正しく動きました。"
       : empty
         ? `P${empty.index + 1}の入力${empty.port + 1}が空いています。出力端子からつないでみよう。`
-        : "下の入力テストで、正解と違う場合を確かめよう。";
+        : "真理値表の行を選んで、正解と違う場合を確かめよう。";
   const rows = Array.from({ length: 2 ** level.inputs.length }, (_, row) => {
     const inputs = level.inputs.map(
         (_, i) => (row >> (level.inputs.length - 1 - i)) & 1,
@@ -528,13 +528,13 @@ function App() {
   const selected = edges.find((edge) => edge.id === selectedEdge);
   return (
     <div
-      className={`page${sideOpen ? " sidebar-open" : ""}${game.motion ? "" : " motion-paused"}`}
+      className={`page${sideOpen ? " sidebar-open" : ""}`}
       data-level={level.id}
     >
       <header className="site-header">
         <a className="brand" href="./">
           <span className="brand-icon" aria-hidden="true">
-            ∿
+            ≥2
           </span>
           <span>
             PARAMETRON<small>計算機パズル</small>
@@ -606,93 +606,117 @@ function App() {
               {instruction}
             </p>
 
+            <section
+              className="truth-table"
+              aria-labelledby="truth-table-title"
+            >
+              <h2 id="truth-table-title">真理値表</h2>
+              <p className="table-help">
+                行を選ぶと、その入力を回路に反映します。
+              </p>
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">
+                      <span className="sr-only">選択</span>
+                    </th>
+                    {level.inputs.map((name) => (
+                      <th key={name} scope="col">
+                        {name}
+                      </th>
+                    ))}
+                    {level.outputs.map((name) => (
+                      <th key={name} scope="col">
+                        {name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((item) => {
+                    const select = () =>
+                      commit(
+                        (b) => {
+                          b.input = item.row;
+                        },
+                        "",
+                        false,
+                      );
+                    return (
+                      <tr
+                        key={item.row}
+                        data-test-row={item.row}
+                        data-selected={item.row === board.input}
+                        className={
+                          item.pending
+                            ? "pending"
+                            : item.match
+                              ? "correct"
+                              : "incorrect"
+                        }
+                        onClick={select}
+                      >
+                        <td>
+                          <button
+                            className="table-input-button"
+                            aria-label={
+                              "入力を " +
+                              level.inputs
+                                .map((name, i) => name + " " + item.inputs[i])
+                                .join("、") +
+                              " にする"
+                            }
+                            aria-pressed={item.row === board.input}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              select();
+                            }}
+                          >
+                            {item.row === board.input ? "▶" : "○"}
+                          </button>
+                        </td>
+                        {item.inputs.map((value, i) => (
+                          <td key={i}>{value}</td>
+                        ))}
+                        {level.outputs.map((name) => (
+                          <td key={name}>
+                            <span className="table-answer">
+                              {item.expected[name]}
+                            </span>
+                            <span
+                              className="table-verdict"
+                              role="img"
+                              aria-label={
+                                item.actual[name] === null
+                                  ? "未接続"
+                                  : item.actual[name] === item.expected[name]
+                                    ? "一致"
+                                    : "不一致"
+                              }
+                            >
+                              {item.actual[name] === null
+                                ? "—"
+                                : item.actual[name] === item.expected[name]
+                                  ? "✅"
+                                  : "❌"}
+                            </span>
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="table-key">
+                出力は正解の値 · ✅ 一致 / ❌ 不一致 / — 未接続
+              </p>
+            </section>
+
             <p className="flow-help">
               丸い端子を出力→入力の順に押すか、ドラッグして接続。素子をつかんで移動、背景でスクロール。「詳細」で各パラメトロンの反転を編集できます。ブループリントは保存した回路をまとめて設置する設計図です。
             </p>
-            {!level.demo && (
-              <>
-                <h2 className="section-title">入力を変えて確かめる</h2>
-                <div className="test-cases">
-                  {rows.map((item) => (
-                    <button
-                      key={item.row}
-                      data-test-row={item.row}
-                      aria-pressed={item.row === board.input}
-                      className={
-                        item.pending
-                          ? "pending"
-                          : item.match
-                            ? "correct"
-                            : "incorrect"
-                      }
-                      onClick={() =>
-                        commit(
-                          (b) => {
-                            b.input = item.row;
-                          },
-                          "",
-                          false,
-                        )
-                      }
-                    >
-                      <span>
-                        {level.inputs
-                          .map((name, i) => name + " " + item.inputs[i])
-                          .join(" · ")}
-                      </span>
-                      <small>
-                        {item.pending
-                          ? "未接続"
-                          : item.match
-                            ? "✓ 正解"
-                            : "× ちがう"}
-                      </small>
-                    </button>
-                  ))}
-                </div>
-                <details className="truth-table">
-                  <summary>真理値表を見る</summary>
-                  <table>
-                    <thead>
-                      <tr>
-                        {level.inputs.map((name) => (
-                          <th key={name}>{name}</th>
-                        ))}
-                        {level.outputs.map((name) => (
-                          <th key={name}>{name} 正解 / 現在</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((item) => (
-                        <tr key={item.row}>
-                          {item.inputs.map((value, i) => (
-                            <td key={i}>{value}</td>
-                          ))}
-                          {level.outputs.map((name) => (
-                            <td key={name}>
-                              {item.expected[name]} /{" "}
-                              {valueText(item.actual[name])}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </details>
-              </>
-            )}
 
             <footer>
-              <button
-                onClick={() => {
-                  const next = clone(gameRef.current);
-                  next.motion = !next.motion;
-                  install(next);
-                }}
-              >
-                {game.motion ? "振動を止める" : "振動を動かす"}
-              </button>
               <p>
                 {storageOk
                   ? "進捗・配置はこのブラウザに自動保存されます。"
@@ -700,7 +724,7 @@ function App() {
               </p>
               <a href="https://reactflow.dev/">React Flow</a>
               <span>
-                丸い素子はすべてパラメトロン。設計図の枠・反転・定数・分岐は無料。波形は模式表示。
+                丸い素子はすべてパラメトロン。設計図の枠・反転・定数・分岐は無料。
               </span>
             </footer>
           </aside>

@@ -13,28 +13,6 @@ const valueText = (value) => (value === 0 || value === 1 ? String(value) : "?");
 const outputLabel = (name) =>
   name === "S" ? "1の位" : name === "C" || name === "Cout" ? "2の位" : "出力";
 
-function Wave({ value }) {
-  const d = Array.from(
-    { length: 121 },
-    (_, x) =>
-      `${x ? "L" : "M"}${x} ${12 + (value === 1 ? -1 : 1) * 6 * Math.sin((x * Math.PI) / 24)}`,
-  ).join(" ");
-  return (
-    <svg
-      className="wave"
-      viewBox="0 0 72 24"
-      aria-hidden="true"
-      style={{ color: color(value) }}
-    >
-      <line x1="0" y1="12" x2="72" y2="12" />
-      {value !== null && (
-        <g className="wave-moving">
-          <path d={d} />
-        </g>
-      )}
-    </svg>
-  );
-}
 function usePorts(data) {
   const id = useNodeId(),
     update = useUpdateNodeInternals();
@@ -87,8 +65,7 @@ function SignalNode({ data }) {
         <strong style={{ color: color(data.value) }}>{data.value}</strong>
         {data.detail && <small>押して0 / 1を切替</small>}
       </button>
-      <Wave value={data.value} />
-      <Source data={data} name={data.name} top={data.detail ? "50%" : 30} />
+      <Source data={data} name={data.name} top={data.detail ? "50%" : 24} />
     </div>
   );
 }
@@ -129,18 +106,9 @@ function ParametronSymbol({ value }) {
       <g className="symbol-body">
         <circle cx="86" cy="48" r="36" />
       </g>
-      <text className="symbol-name" x="84" y="44" textAnchor="middle">
+      <text className="symbol-name" x="86" y="54" textAnchor="middle">
         ≥2
       </text>
-      <path
-        className="symbol-sine"
-        style={{ stroke: color(value) }}
-        d={
-          value === 1
-            ? "M66 60Q72 45 78 60T90 60T102 60"
-            : "M66 60Q72 75 78 60T90 60T102 60"
-        }
-      />
       <circle className="symbol-value-bg" cx="141" cy="48" r="12" />
       <text
         className="symbol-value"
@@ -247,7 +215,6 @@ function GateNode({ data }) {
         <strong style={{ color: color(data.value) }}>
           {valueText(data.value)}
         </strong>
-        <Wave value={data.value} />
       </div>
       <Source
         data={data}
@@ -291,7 +258,6 @@ function OutputNode({ data }) {
       </div>
       {data.detail ? (
         <>
-          <Wave value={data.value} />
           <div className="expected">この入力の正解：{data.expected}</div>
           {data.invert && (
             <button
@@ -359,11 +325,11 @@ export function nodeSize(node) {
   if (node.type === "answer")
     return {
       width: node.data.detail ? 150 : 112,
-      height: node.data.detail ? (node.data.invert ? 194 : 164) : 94,
+      height: node.data.detail ? (node.data.invert ? 170 : 140) : 94,
     };
   return {
     width: node.data.detail ? 150 : 100,
-    height: node.data.detail ? 130 : 70,
+    height: node.data.detail ? 94 : 48,
   };
 }
 export const nodeTypes = {
