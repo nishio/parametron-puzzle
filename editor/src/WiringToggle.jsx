@@ -7,15 +7,15 @@ export function WiringGlyph({ inverted, value = 0 }) {
   return (
     <svg className="wiring-glyph" viewBox="0 0 32 24" aria-hidden="true">
       <path
-        d={first}
-        className="wire-zero"
-        style={{ stroke: strandColor(value, 0) }}
-      />
-      {inverted && <path d={second} className="wire-bridge" />}
-      <path
         d={second}
         className="wire-one"
         style={{ stroke: strandColor(value, 1) }}
+      />
+      {inverted && <path d={first} className="wire-bridge" />}
+      <path
+        d={first}
+        className="wire-zero"
+        style={{ stroke: strandColor(value, 0) }}
       />
     </svg>
   );
@@ -38,22 +38,22 @@ export function WirePair({ inverted, length, value = null }) {
   return (
     <g className="wire-pair">
       <path
-        className="wire-zero"
-        data-rail="0"
-        d={strand(6, 18)}
-        style={{ stroke: strandColor(value, 0) }}
-      />
-      {inverted && (
-        <path
-          className="wire-bridge"
-          d={"M" + a + " 18C" + m + " 18 " + m + " 6 " + b + " 6"}
-        />
-      )}
-      <path
         className="wire-one"
         data-rail="1"
         d={strand(18, 6)}
         style={{ stroke: strandColor(value, 1) }}
+      />
+      {inverted && (
+        <path
+          className="wire-bridge"
+          d={"M" + a + " 6C" + m + " 6 " + m + " 18 " + b + " 18"}
+        />
+      )}
+      <path
+        className="wire-zero"
+        data-rail="0"
+        d={strand(6, 18)}
+        style={{ stroke: strandColor(value, 0) }}
       />
     </g>
   );

@@ -34,16 +34,16 @@ export function PairEdge(props) {
         interactionWidth={24}
       />
       <path
-        d={upper}
-        className="signal-strand wire-zero"
-        data-rail="0"
-        style={{ stroke: strandColor(props.data?.value, 0) }}
-      />
-      <path
         d={lower}
         className="signal-strand wire-one"
         data-rail="1"
         style={{ stroke: strandColor(props.data?.value, 1) }}
+      />
+      <path
+        d={upper}
+        className="signal-strand wire-zero"
+        data-rail="0"
+        style={{ stroke: strandColor(props.data?.value, 0) }}
       />
     </>
   );

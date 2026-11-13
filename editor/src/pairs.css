@@ -49,6 +49,26 @@
 }
 .compact-gate {
   width: 170px;
+  background: #eef0f2;
+  box-shadow: inset 0 0 0 1px #d5dce2;
+}
+.compact-gate .node-title {
+  padding: 0 6px;
+  background: transparent;
+}
+.compact-gate .wire-bridge,
+.aggregation-wires .collector-bridge {
+  stroke: #eef0f2;
+}
+.twist-hit-background {
+  fill: #dfe3e6;
+  stroke: #aeb8c1;
+  stroke-width: 1;
+  pointer-events: none;
+}
+.parametron-lead:has(.twist-hit-background) .wire-bridge,
+.output-wire .wire-bridge {
+  stroke: #dfe3e6;
 }
 .gate-symbol {
   width: 170px;

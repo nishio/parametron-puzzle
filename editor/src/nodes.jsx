@@ -82,7 +82,7 @@ function ConstantNode({ data }) {
     </div>
   );
 }
-function ParametronSymbol({ value, gate, values }) {
+function ParametronSymbol({ value, gate, values, canTwist }) {
   return (
     <svg
       className="gate-symbol symbol-drag"
@@ -96,6 +96,16 @@ function ParametronSymbol({ value, gate, values }) {
           key={port}
           transform={"translate(0 " + (18 + port * 32) + ")"}
         >
+          {canTwist(port) && (
+            <rect
+              className="twist-hit-background"
+              x="16"
+              y="-2"
+              width="48"
+              height="28"
+              rx="8"
+            />
+          )}
           <WirePair
             inverted={edge.inverted}
             length={64}
@@ -105,35 +115,6 @@ function ParametronSymbol({ value, gate, values }) {
       ))}
       <circle className="aggregation-ring" cx="120" cy="62" r="20" />
       <g className="aggregation-wires">
-        {[0, 1, 2].map((port) => (
-          <path
-            key={port}
-            className="collector wire-zero"
-            style={{ stroke: color(readEdge(gate.ports[port], values)) }}
-            data-rail="0"
-            data-input={port}
-            d={
-              "M64 " +
-              (24 + port * 32) +
-              "C88 " +
-              (24 + port * 32) +
-              " 92 56 112 56"
-            }
-          />
-        ))}
-        {[0, 1, 2].map((port) => (
-          <path
-            key={port}
-            className="collector-bridge"
-            d={
-              "M64 " +
-              (36 + port * 32) +
-              "C102 " +
-              (36 + port * 32) +
-              " 108 68 128 68"
-            }
-          />
-        ))}
         {[0, 1, 2].map((port) => (
           <path
             key={port}
@@ -149,6 +130,37 @@ function ParametronSymbol({ value, gate, values }) {
               "C102 " +
               (36 + port * 32) +
               " 108 68 128 68"
+            }
+          />
+        ))}
+        {[0, 1, 2].map((port) => (
+          <path
+            key={port}
+            className="collector-bridge"
+            d={
+              "M64 " +
+              (24 + port * 32) +
+              "C88 " +
+              (24 + port * 32) +
+              " 92 56 112 56"
+            }
+          />
+        ))}
+        {[0, 1, 2].map((port) => (
+          <path
+            key={port}
+            className="collector wire-zero"
+            style={{
+              stroke: color(readEdge(gate.ports[port], values)),
+            }}
+            data-rail="0"
+            data-input={port}
+            d={
+              "M64 " +
+              (24 + port * 32) +
+              "C88 " +
+              (24 + port * 32) +
+              " 92 56 112 56"
             }
           />
         ))}
@@ -381,6 +393,14 @@ function OutputNode({ data }) {
           <div className="compact-expected">正解 {data.expected}</div>
           {data.invert && (
             <svg className="output-wire" viewBox="0 0 44 24" aria-hidden="true">
+              <rect
+                className="twist-hit-background"
+                x="14"
+                y="-2"
+                width="28"
+                height="28"
+                rx="8"
+              />
               <WirePair
                 inverted={data.inverted}
                 length={44}

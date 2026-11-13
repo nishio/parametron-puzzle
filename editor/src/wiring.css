@@ -1,4 +1,4 @@
-/* The switch is a section of the wire, with no separate button chrome. */
+/* A shaded section of the wire marks the clickable parallel/twist switch. */
 .wiring-toggle {
   display: inline-flex;
   align-items: center;
@@ -6,16 +6,17 @@
   gap: 7px;
   min-height: 30px;
   padding: 3px 7px;
-  border: 0;
+  border: 1px solid #aeb8c1;
   border-radius: 8px;
-  background: transparent;
+  background: #2634400d;
   color: #536e84;
   font-size: 10px;
   vertical-align: middle;
   box-shadow: none;
 }
 .wiring-toggle:hover {
-  background: #e2ebf3;
+  background: #2634401c;
+  border-color: #788b9a;
 }
 .wiring-toggle:focus-visible {
   outline: 2px solid #5f8eaf;
@@ -53,7 +54,7 @@
   height: 28px;
   min-height: 28px;
   padding: 0;
-  border: 0;
+  border: 1px solid #aeb8c1;
   border-radius: 8px;
   background: transparent;
   pointer-events: auto;
@@ -61,21 +62,17 @@
 }
 .pin-invert.wiring-toggle:hover {
   background: transparent;
+  border-color: #788b9a;
 }
 .pin-invert .wiring-glyph {
   width: 42px;
   height: 28px;
 }
 .pin-invert.wiring-toggle[aria-checked="true"] {
-  background: transparent;
-  border: 0;
   box-shadow: none;
 }
 .pin-invert.wiring-toggle[aria-checked="true"]:hover {
   background: transparent;
-}
-.pin-invert.tutorial-toggle {
-  outline: none;
 }
 .wire-source-label {
   background: transparent;
@@ -119,6 +116,7 @@
 }
 .wiring-toggle.compact-output-invert:hover {
   background: transparent;
+  border-color: #788b9a;
 }
 .wire-pair path {
   fill: none;
