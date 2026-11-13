@@ -414,6 +414,7 @@ footer span {
 }
 .react-flow__node-blueprint {
   border-radius: 14px;
+  pointer-events: none !important;
 }
 .blueprint-frame {
   width: 100%;
@@ -424,6 +425,8 @@ footer span {
   position: relative;
 }
 .blueprint-frame > .node-title {
+  pointer-events: auto;
+  background: #f0f7fb;
   height: 42px;
   border-bottom: 1px dashed #bdd3e2;
   padding: 7px 10px;
@@ -596,32 +599,24 @@ footer span {
 .compact-signal .signal-switch strong {
   font-size: 22px;
 }
-.compact-constants {
+.constant-node {
   width: 100px;
-  height: 94px;
+  height: 48px;
   border-radius: 12px;
   border-color: #c9d7e2;
 }
-.compact-constants .node-title {
-  height: 22px;
-  padding: 3px 12px 0;
+.constant-node .node-title {
+  height: 46px;
+  padding: 6px 14px;
   border: 0;
+}
+.constant-node .node-title > span {
   font-size: 9px;
   font-weight: 400;
   color: #7a8d9d;
 }
-.compact-constants .constant-row {
-  height: 34px;
-  padding: 0 14px;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  font-size: 17px;
-}
-.compact-constants .constant-row span {
-  font-size: 9px;
-  font-weight: 400;
-  color: #92a0ad;
+.constant-node .node-title > strong {
+  font-size: 22px;
 }
 .compact-output {
   width: 112px;

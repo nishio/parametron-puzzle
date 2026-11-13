@@ -58,7 +58,7 @@ const signalNode = (source) =>
   /^P[1-9][0-9]*$/.test(source)
     ? { id: "gate:" + (Number(source.slice(1)) - 1), handle: "out" }
     : source === "0" || source === "1"
-      ? { id: "constants", handle: source }
+      ? { id: "constant:" + source, handle: "out" }
       : { id: "input:" + source, handle: "out" };
 function App() {
   const [game, setGame] = useState(readGame),
@@ -129,8 +129,8 @@ function App() {
     return null;
   };
   const connectionSource = (c) =>
-    c.source === "constants"
-      ? c.sourceHandle
+    c.source?.startsWith("constant:")
+      ? c.source.slice(9)
       : c.source?.startsWith("input:")
         ? c.source.slice(6)
         : c.source?.startsWith("gate:")
@@ -241,13 +241,14 @@ function App() {
       },
     }));
     if (!l.demo)
-      nextNodes.push({
-        id: "constants",
-        type: "constants",
-        ...base,
-        position: { x: 0, y: 0 },
-        data: { demo: false },
-      });
+      for (const value of [0, 1])
+        nextNodes.push({
+          id: "constant:" + value,
+          type: "constant",
+          ...base,
+          position: { x: 0, y: 0 },
+          data: { value, demo: false },
+        });
     const groupForGate = new Map();
     for (const group of b.blueprints || []) {
       group.gates.forEach((index) =>
@@ -809,6 +810,7 @@ function App() {
               <ReactFlow
                 nodes={nodes.map((node) => ({
                   ...node,
+                  zIndex: node.type === "blueprint" ? 1 : 2,
                   className:
                     selected &&
                     [selected.source, selected.target].includes(node.id)
@@ -822,8 +824,9 @@ function App() {
                       ? "wire-active"
                       : "wire-muted"
                     : undefined,
-                  zIndex: edge.id === selectedEdge ? 10 : 0,
+                  zIndex: 0,
                 }))}
+                zIndexMode="manual"
                 nodeTypes={nodeTypes}
                 onNodesChange={onGraphNodesChange}
                 onEdgesChange={onEdgesChange}

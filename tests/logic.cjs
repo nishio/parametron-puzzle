@@ -113,6 +113,12 @@ const imported=normalizeBoard(lookup('full'),flowBoard,library);
 assert.equal(imported.flow.wide.unknown,undefined);
 assert.deepEqual(removeGate(imported,0).flow.wide['gate:0'],{x:500,y:22});
 assert.deepEqual(normalizeGame({version:2,level:5,introDone:true,library,bests:{and:1,or:1,xor:3,half:4},boards:{full:flowBoard}}).boards.full.flow.wide['gate:0'],{x:123,y:456});
+const legacyFixed={...solutions.and,flow:{blueprintWide:{constants:{x:250,y:300}}}};
+const splitFixed=normalizeBoard(lookup('and'),legacyFixed,library);
+assert.deepEqual(splitFixed.flow.blueprintWide['constant:0'],{x:250,y:300});
+assert.deepEqual(splitFixed.flow.blueprintWide['constant:1'],{x:250,y:364});
+assert.equal(splitFixed.flow.blueprintWide.constants,undefined);
+assert.equal(score(lookup('and'),splitFixed,library).clear,true,'Splitting fixed sources must preserve existing connections');
 
 // A placed blueprint is an editable copy of the user's actual saved netlist.
 const migrated=normalizeBoard(lookup('full'),moduleFull,library);

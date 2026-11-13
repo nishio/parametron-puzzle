@@ -69,27 +69,18 @@ function SignalNode({ data }) {
     </div>
   );
 }
-function ConstantsNode({ data }) {
+function ConstantNode({ data }) {
   usePorts(data);
   return (
-    <div className="graph-node constants-node compact-constants">
-      <header className="node-title">固定信号</header>
-      {[0, 1].map((value, i) => (
-        <div
-          className="constant-row"
-          key={value}
-          style={{ color: color(value) }}
-        >
-          <strong>{value}</strong>
-          <span>固定</span>
-          <Source
-            data={{ ...data, value }}
-            name={String(value)}
-            id={String(value)}
-            top={39 + i * 34}
-          />
-        </div>
-      ))}
+    <div
+      className="graph-node constant-node"
+      aria-label={`固定信号${data.value}`}
+    >
+      <header className="node-title">
+        <span>固定信号</span>
+        <strong style={{ color: color(data.value) }}>{data.value}</strong>
+      </header>
+      <Source data={data} name={String(data.value)} top="50%" />
     </div>
   );
 }
@@ -321,7 +312,7 @@ export function nodeSize(node) {
             node.data.gate.ports.length * 46 + (node.data.editable ? 150 : 114),
         }
       : { width: 160, height: 124 };
-  if (node.type === "constants") return { width: 100, height: 94 };
+  if (node.type === "constant") return { width: 100, height: 48 };
   if (node.type === "answer")
     return {
       width: node.data.detail ? 150 : 112,
@@ -334,7 +325,7 @@ export function nodeSize(node) {
 }
 export const nodeTypes = {
   signal: SignalNode,
-  constants: ConstantsNode,
+  constant: ConstantNode,
   gate: GateNode,
   blueprint: BlueprintNode,
   answer: OutputNode,

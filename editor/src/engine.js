@@ -373,6 +373,8 @@ function normalizeBoard(level, candidate, library = {}) {
     const ids = new Set([
       ...level.inputs.map((name) => "input:" + name),
       "constants",
+      "constant:0",
+      "constant:1",
       ...gates.map((_, i) => "gate:" + i),
       ...level.outputs.map((name) => "output:" + name),
       ...(board.blueprints || []).map((group) => "blueprint:" + group.id),
@@ -386,7 +388,7 @@ function normalizeBoard(level, candidate, library = {}) {
       "blueprintWide",
       "blueprintNarrow",
     ])
-      if (candidate.flow[mode] && typeof candidate.flow[mode] === "object")
+      if (candidate.flow[mode] && typeof candidate.flow[mode] === "object") {
         board.flow[mode] = Object.fromEntries(
           Object.entries(candidate.flow[mode])
             .filter(
@@ -403,6 +405,13 @@ function normalizeBoard(level, candidate, library = {}) {
               },
             ]),
         );
+        const legacy = board.flow[mode].constants;
+        if (legacy) {
+          board.flow[mode]["constant:0"] ??= { ...legacy };
+          board.flow[mode]["constant:1"] ??= { x: legacy.x, y: legacy.y + 64 };
+          delete board.flow[mode].constants;
+        }
+      }
   }
   return allocatedCost(board, library) <= level.budget ? board : fallback();
 }

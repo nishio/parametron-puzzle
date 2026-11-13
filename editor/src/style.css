@@ -218,7 +218,6 @@ h1 {
   color: #64788b;
 }
 .signal-node,
-.constants-node,
 .output-node {
   width: 150px;
 }
@@ -244,16 +243,6 @@ h1 {
 .signal-switch small {
   font-size: 10px;
   font-weight: 400;
-}
-.constant-row {
-  height: 46px;
-  padding: 10px 15px;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-.constant-row strong {
-  font-size: 19px;
 }
 .gate-node {
   width: 240px;

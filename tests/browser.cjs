@@ -172,6 +172,11 @@ let browser;
         .textContent.includes("1が2票"),
     );
     await page.getByRole("button", { name: /次へ：AND/ }).click();
+    assert.equal(await page.locator(".react-flow__node-constant").count(), 2);
+    assert.equal(
+      await page.locator('.react-flow__node[data-id="constants"]').count(),
+      0,
+    );
     await inTable(page, async (table) => {
       assert.deepEqual(await table.locator("th").allTextContents(), [
         "選択",
@@ -268,6 +273,41 @@ let browser;
         .locator('[data-testid="source-0"]')
         .dragTo(page.locator('[data-testid="target-0-2"]'));
       await clear(page, 1);
+      const zero = page.locator('.react-flow__node[data-id="constant:0"]');
+      const one = page.locator('.react-flow__node[data-id="constant:1"]');
+      const beforeZero = await zero.evaluate((node) => node.style.transform);
+      const beforeOne = await one.evaluate((node) => node.style.transform);
+      await zero.locator(".node-title").click();
+      await zero.focus();
+      await page.keyboard.press("ArrowRight");
+      await page.waitForFunction(
+        (previous) =>
+          document.querySelector('.react-flow__node[data-id="constant:0"]')
+            .style.transform !== previous,
+        beforeZero,
+      );
+      await page.waitForFunction(
+        () =>
+          JSON.parse(localStorage.getItem("parametron-puzzle:v2")).boards.and
+            .flow?.blueprintWide?.["constant:0"],
+      );
+      assert.equal(
+        await one.evaluate((node) => node.style.transform),
+        beforeOne,
+        "Moving fixed 0 must leave fixed 1 in place",
+      );
+      const fixedPositions = (await stored(page)).boards.and.flow.blueprintWide;
+      await page.reload({ waitUntil: "networkidle" });
+      await zero.waitFor();
+      await clear(page, 1);
+      assert.deepEqual(
+        (await stored(page)).boards.and.flow.blueprintWide,
+        fixedPositions,
+      );
+      assert.equal(
+        await one.evaluate((node) => node.style.transform),
+        beforeOne,
+      );
     }
     await page.screenshot({
       path: path.join(out, `and-${width}.png`),

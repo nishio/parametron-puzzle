@@ -103,7 +103,7 @@ export function autoArrange(nodes, edges) {
   }
   const arranged = layoutGraph(outer, outerEdges).nodes;
   const inputs = arranged.filter(
-    (node) => node.type === "signal" || node.type === "constants",
+    (node) => node.type === "signal" || node.type === "constant",
   );
   if (inputs.length) {
     const top = Math.min(...inputs.map((node) => node.position.y));
