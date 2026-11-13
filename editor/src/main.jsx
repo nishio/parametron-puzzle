@@ -81,7 +81,6 @@ function App() {
     [message, setMessage] = useState(""),
     [storageOk, setStorageOk] = useState(true),
     [selectedEdge, setSelectedEdge] = useState(null),
-    [part, setPart] = useState("MAJ"),
     [sideOpen, setSideOpen] = useState(innerWidth >= 900),
     [clearDialog, setClearDialog] = useState(null);
   const announcedClears = useRef(new Set(Object.keys(game.bests)));
@@ -145,7 +144,6 @@ function App() {
     if (levels[next.level].demo) next.introDone = true;
     next.level++;
     install(next);
-    setPart("MAJ");
     setMessage("");
     setSelectedEdge(null);
   }
@@ -493,7 +491,6 @@ function App() {
     install(next);
     setMessage("");
     setSelectedEdge(null);
-    setPart("MAJ");
   }
   function deleteElements({ nodes: deletedNodes, edges: deletedEdges }) {
     if (level.demo || level.lockedWiring) return;
@@ -813,43 +810,51 @@ function App() {
               </>
             )}
             {!!level.editable && (
-              <label>
-                置くもの{" "}
-                <select
-                  aria-label="配置する素子・ブループリント"
-                  value={part}
-                  onChange={(e) => setPart(e.target.value)}
-                >
-                  {allowedTypes(level, game.library).map((type) => (
-                    <option key={type} value={type}>
-                      {type === "MAJ"
-                        ? "パラメトロン"
-                        : type + "のブループリント"}{" "}
-                      · {partCost(type, game.library)}個
-                    </option>
-                  ))}
-                </select>
-                <button
-                  disabled={
-                    allocatedCost(board, game.library) +
-                      partCost(part, game.library) >
-                    level.budget
-                  }
-                  onClick={() => {
-                    placementSaveNeeded.current = true;
-                    commit((b) => {
-                      if (!allowedTypes(level, game.library).includes(part))
-                        return;
-                      if (part !== "MAJ")
-                        return placeBlueprint(b, part, gameRef.current.library);
-                      b.gates.push(blankGate());
-                      delete b.flow;
-                    });
-                  }}
-                >
-                  {part === "MAJ" ? "追加" : "設置"}
-                </button>
-              </label>
+              <div
+                className="part-palette"
+                role="group"
+                aria-label="素子・ブループリントを配置"
+              >
+                {allowedTypes(level, game.library).map((type) => (
+                  <button
+                    key={type}
+                    data-part={type}
+                    aria-label={
+                      (type === "MAJ" ? "パラメトロン" : type) + "を配置"
+                    }
+                    disabled={
+                      allocatedCost(board, game.library) +
+                        partCost(type, game.library) >
+                      level.budget
+                    }
+                    onClick={() => {
+                      commit((b) => {
+                        if (
+                          !allowedTypes(
+                            level,
+                            gameRef.current.library,
+                          ).includes(type) ||
+                          allocatedCost(b, gameRef.current.library) +
+                            partCost(type, gameRef.current.library) >
+                            level.budget
+                        )
+                          return;
+                        placementSaveNeeded.current = true;
+                        if (type !== "MAJ")
+                          return placeBlueprint(
+                            b,
+                            type,
+                            gameRef.current.library,
+                          );
+                        b.gates.push(blankGate());
+                        delete b.flow;
+                      });
+                    }}
+                  >
+                    {type === "MAJ" ? "パラメトロン" : type}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 

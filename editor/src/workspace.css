@@ -244,6 +244,26 @@ footer span {
 .toolbar:empty {
   display: none;
 }
+.part-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-left: auto;
+}
+.part-palette button {
+  white-space: nowrap;
+}
+.part-palette button:not([data-part="MAJ"]) {
+  background: #f0f7fc;
+  border-color: #b8ccdc;
+}
+@media (max-width: 700px) {
+  .part-palette {
+    width: 100%;
+    margin-left: 0;
+    gap: 6px;
+  }
+}
 .toolbar button,
 .toolbar select {
   font-size: 11px;

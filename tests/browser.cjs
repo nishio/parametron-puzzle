@@ -135,11 +135,8 @@ let browser;
     const game = await stored(page),
       count = game.boards[game.levelId].gates.length;
     await page
-      .getByRole("combobox", { name: "配置する素子・ブループリント" })
-      .selectOption(name);
-    await page
       .getByRole("button", {
-        name: name === "MAJ" ? "追加" : "設置",
+        name: (name === "MAJ" ? "パラメトロン" : name) + "を配置",
         exact: true,
       })
       .click();
@@ -760,10 +757,23 @@ let browser;
       for (let i = 0; i < 3; i++) await place(page);
       assert.deepEqual(
         await page
-          .getByRole("combobox", { name: "配置する素子・ブループリント" })
-          .locator("option")
-          .evaluateAll((options) => options.map((option) => option.value)),
+          .getByRole("group", { name: "素子・ブループリントを配置" })
+          .locator("button")
+          .evaluateAll((buttons) =>
+            buttons.map((button) => button.dataset.part),
+          ),
         ["MAJ", "AND", "OR"],
+      );
+      assert.deepEqual(
+        await page.locator(".part-palette button").allTextContents(),
+        ["パラメトロン", "AND", "OR"],
+        "Placement buttons must show names without element counts",
+      );
+      assert.equal(
+        await page
+          .getByRole("combobox", { name: "配置する素子・ブループリント" })
+          .count(),
+        0,
       );
       for (const [i, ports] of [
         ["A", "B", "0"],
@@ -815,9 +825,6 @@ let browser;
         fullPage: true,
       });
       for (const name of ["XOR", "AND"]) {
-        await page
-          .getByRole("combobox", { name: "配置する素子・ブループリント" })
-          .selectOption(name);
         await place(page, name);
       }
       const half = (await stored(page)).boards.half;
@@ -869,7 +876,9 @@ let browser;
       await page.getByRole("button", { name: /次へ：セレクター/ }).click();
       assert.equal((await stored(page)).boards.mux.gates.length, 0);
       for (let i = 0; i < 3; i++)
-        await page.getByRole("button", { name: "追加", exact: true }).click();
+        await page
+          .getByRole("button", { name: "パラメトロンを配置", exact: true })
+          .click();
       for (const [i, ports] of [
         ["A", "!S", "0"],
         ["B", "S", "0"],
@@ -995,9 +1004,8 @@ let browser;
         ["OR", "1"],
       ]) {
         await page
-          .getByRole("combobox", { name: "配置する素子・ブループリント" })
-          .selectOption(name);
-        await page.getByRole("button", { name: "設置", exact: true }).click();
+          .getByRole("button", { name: name + "を配置", exact: true })
+          .click();
         const preset = (await stored(page)).boards.full;
         assert.equal(preset.gates.length, 1);
         assert.equal(preset.gates[0].type, "MAJ");
@@ -1028,9 +1036,8 @@ let browser;
       }
       // A palette entry stamps a saved raw circuit, with constants and inversions.
       await page
-        .getByRole("combobox", { name: "配置する素子・ブループリント" })
-        .selectOption("XOR");
-      await page.getByRole("button", { name: "設置", exact: true }).click();
+        .getByRole("button", { name: "XORを配置", exact: true })
+        .click();
       const stamp = (await stored(page)).boards.full;
       assert.equal(stamp.gates.length, 3);
       assert.ok(stamp.gates.every((gate) => gate.type === "MAJ"));
@@ -1048,11 +1055,10 @@ let browser;
           exact: true,
         })
         .click();
-      await page
-        .getByRole("combobox", { name: "配置する素子・ブループリント" })
-        .selectOption("MAJ");
       for (let i = 0; i < 3; i++)
-        await page.getByRole("button", { name: "追加", exact: true }).click();
+        await page
+          .getByRole("button", { name: "パラメトロンを配置", exact: true })
+          .click();
       for (const [i, ports] of [
         ["A", "B", "Cin"],
         ["A", "B", "!Cin"],
@@ -1111,10 +1117,7 @@ let browser;
       };
       const mobile = await open(width, fixture);
       await mobile.page
-        .getByRole("combobox", { name: "配置する素子・ブループリント" })
-        .selectOption("XOR");
-      await mobile.page
-        .getByRole("button", { name: "設置", exact: true })
+        .getByRole("button", { name: "XORを配置", exact: true })
         .tap();
       await mobile.page.locator('[data-presentation="blueprint"]').waitFor();
       assert.equal((await stored(mobile.page)).boards.full.gates.length, 3);

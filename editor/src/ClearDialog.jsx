@@ -52,7 +52,8 @@ export function ClearDialog({ completion, nextName, onClose, onNext }) {
                   : "ブループリントを獲得済み"}
               </h3>
               <p>
-                作った回路を保存しました。固定信号も含めて「置くもの」から設置できます。
+                作った回路を保存しました。「{completion.reward}
+                」ボタンで、固定信号も含めて設置できます。
               </p>
             </div>
           </section>
