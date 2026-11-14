@@ -599,6 +599,7 @@ function normalizeGame(candidate) {
       majorityDone: false,
       majorityStep: 0,
       firstWireDone: false,
+      andStep: 0,
     },
     boards: {},
     library: {},
@@ -655,6 +656,11 @@ function normalizeGame(candidate) {
   game.onboarding.firstWireDone =
     game.bests.and !== undefined ||
     candidate.onboarding?.firstWireDone === true;
+  game.onboarding.andStep = Number.isInteger(candidate.onboarding?.andStep)
+    ? Math.max(0, Math.min(5, candidate.onboarding.andStep))
+    : game.onboarding.firstWireDone
+      ? 5
+      : 0;
   // Older saves used numeric chapter positions before the wiring tutorial.
   const legacyOrder = ["intro", "and", "or", "xor", "half", "full"];
   const savedId = candidate.levelId || legacyOrder[candidate.level];

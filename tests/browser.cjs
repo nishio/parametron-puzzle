@@ -727,7 +727,32 @@ let browser;
         .evaluate((el) => (el.scrollTop = 0));
     }
     await page.getByRole("button", { name: /次へ：AND/ }).click();
-    assert.equal(await page.locator(".react-flow__node-constant").count(), 2);
+    await page
+      .locator(".and-intro .compact-gate .node-title strong")
+      .getByText("多数決", { exact: true })
+      .waitFor();
+    assert.equal(await page.locator(".react-flow__node-constant").count(), 1);
+    assert.ok(
+      await page
+        .getByRole("heading", { name: "AND：両方1のときだけ1。", exact: true })
+        .isVisible(),
+    );
+    assert.match(
+      await page.locator(".and-intro").innerText(),
+      /さっきの多数決/,
+    );
+    assert.equal(await page.locator(".and-intro .toolbar button").count(), 0);
+    assert.equal(
+      await page
+        .locator(".and-intro .compact-gate .node-title strong")
+        .innerText(),
+      "多数決",
+    );
+    assert.equal(
+      await page.locator(".and-intro .compact-output .node-title").innerText(),
+      "結果",
+    );
+    assert.equal(await page.locator(".and-intro .compact-expected").count(), 0);
     assert.equal(
       await page.locator('.react-flow__node[data-id="constants"]').count(),
       0,
@@ -736,9 +761,62 @@ let browser;
       path: path.join(out, "wire-guide-start-" + width + ".png"),
       fullPage: true,
     });
+    await page
+      .getByRole("button", { name: "自分で線をつなぐ", exact: true })
+      .click();
     await page.locator(".guide-source").waitFor();
+    const sourceBox = await page.locator(".guide-source").boundingBox();
+    assert.ok(
+      sourceBox.width >= 44 && sourceBox.height >= 44,
+      "The first connection needs a full touch target",
+    );
     await connect(page, "0", "0-2", width < 700);
+    assert.equal(
+      await page.getByRole("dialog").count(),
+      0,
+      "Connecting must not immediately finish the lesson",
+    );
+    assert.equal((await stored(page)).bests.and, undefined);
+    assert.equal((await stored(page)).library.AND, undefined);
+    assert.equal((await stored(page)).onboarding.andStep, 2);
+    if (width === 320) {
+      await page.reload({ waitUntil: "networkidle" });
+      assert.ok(
+        await page
+          .getByRole("button", { name: "AとBを1にする", exact: true })
+          .isVisible(),
+      );
+      assert.equal((await stored(page)).onboarding.andStep, 2);
+    }
+    await page
+      .getByRole("button", { name: "AとBを1にする", exact: true })
+      .click();
+    assert.equal((await stored(page)).boards.and.input, 3);
+    assert.match(
+      await page.getByRole("region", { name: "いまの多数決" }).innerText(),
+      /1が\s*2票/,
+    );
+    await page
+      .getByRole("button", { name: "入力Bを切り替える", exact: true })
+      .click();
+    assert.equal((await stored(page)).boards.and.input, 2);
+    assert.match(
+      await page.getByRole("region", { name: "いまの多数決" }).innerText(),
+      /0が\s*2票/,
+    );
+    await page
+      .getByRole("button", { name: "ANDクリアを確認", exact: true })
+      .click();
+    assert.ok(
+      await page
+        .getByText("全4通りの入力を、ゲームが自動チェックしました。", {
+          exact: true,
+        })
+        .isVisible(),
+    );
     await clear(page, 1);
+    await page.locator('.react-flow__node[data-id="constant:1"]').waitFor();
+    assert.equal(await page.locator(".react-flow__node-constant").count(), 2);
     await inTable(page, async (table) => {
       const cell = table.locator('[data-test-row="3"] td').nth(1);
       if (width < 700) await cell.tap();
@@ -1309,6 +1387,45 @@ let browser;
       true,
       "The workspace must fit the screen without page scrolling",
     );
+    if (width === 1280) {
+      const original = await page.evaluate(() =>
+        localStorage.getItem("parametron-puzzle:v2"),
+      );
+      const replay = await context.newPage();
+      const url = new URL(page.url());
+      url.searchParams.set("and-guide", "1");
+      url.searchParams.delete("welcome");
+      await replay.goto(url.href, { waitUntil: "networkidle" });
+      await replay
+        .getByRole("button", { name: "自分で線をつなぐ", exact: true })
+        .click();
+      await replay.locator(".guide-source").waitFor();
+      await connect(replay, "0", "0-2");
+      await replay
+        .getByRole("button", { name: "AとBを1にする", exact: true })
+        .click();
+      await replay
+        .getByRole("button", { name: "入力Bを切り替える", exact: true })
+        .click();
+      await replay
+        .getByRole("button", { name: "ANDクリアを確認", exact: true })
+        .click();
+      await replay.getByRole("dialog").waitFor();
+      assert.equal(
+        await replay
+          .getByRole("region", { name: "獲得したブループリント" })
+          .count(),
+        0,
+      );
+      assert.equal(
+        await replay.evaluate(() =>
+          localStorage.getItem("parametron-puzzle:v2"),
+        ),
+        original,
+        "Replaying the AND introduction must preserve every saved circuit, position, blueprint and best",
+      );
+      await replay.close();
+    }
     await context.close();
     if (width < 700) {
       const fixture = JSON.parse(JSON.stringify(blueprintGame));

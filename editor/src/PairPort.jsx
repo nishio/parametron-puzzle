@@ -10,8 +10,8 @@ export function PairPort({ style, className = "", value = null, ...props }) {
       className={`pair-terminal ${className}`}
       style={{
         ...style,
-        width: 22,
-        height: 24,
+        width: /guide-source|guide-target/.test(className) ? 52 : 22,
+        height: /guide-source|guide-target/.test(className) ? 52 : 24,
         border: 0,
         background: "transparent",
       }}

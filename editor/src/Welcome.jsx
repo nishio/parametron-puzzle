@@ -100,7 +100,42 @@ export function OnboardingCoach({ kind, done, sourceSelected, step }) {
   );
 }
 
-export function MajorityReading({ values, result }) {
+export function AndCoach({ step, sourceSelected }) {
+  const titles = [
+    "AND：両方1のときだけ1。",
+    sourceSelected ? "次は、多数決の「空き入力」。" : "固定0の接続口を押そう。",
+    "3票目が固定0につながりました。",
+    "1が2票。結果も1です。",
+    "片方が0なら、結果も0。",
+    "ANDの回路ができました。",
+  ];
+  const descriptions = [
+    "さっきの多数決を使います。3票目を、いつも0の「固定0」につなぎ替えます。",
+    sourceSelected
+      ? "光る枠の丸は、上下どちらでもOK。押すと、固定0から2本まとめてつながります。"
+      : "光る枠の丸は、上下どちらでもOK。続いて、多数決の空き入力を押してつなぎます。",
+    "A・Bの数字は変えられますが、3票目は0のまま。AとBを両方1にしてみよう。",
+    "AとBの1が2票で、多数決は1。次はBの1を押して、0に変えてみよう。",
+    "Bと固定0で、0が2票。Aだけ1では結果は1になりません。これがANDです。",
+    "多数決の3票目を固定0にすると、AとBが両方1のときだけ結果が1になります。",
+  ];
+  return (
+    <section
+      className="onboarding-coach"
+      aria-labelledby="onboarding-task"
+      aria-live="polite"
+    >
+      <div className="onboarding-step">
+        多数決からANDへ ·{" "}
+        {step === 0 ? "見る" : step === 1 ? "つなぐ" : "確かめる"}
+      </div>
+      <h1 id="onboarding-task">{titles[step]}</h1>
+      <p>{descriptions[step]}</p>
+    </section>
+  );
+}
+
+export function MajorityReading({ values, result, compact = false }) {
   const ones = values.filter((value) => value === 1).length;
   return (
     <section
@@ -118,12 +153,14 @@ export function MajorityReading({ values, result }) {
       <p>
         <strong>{result}</strong>が多いので、結果は<strong>{result}</strong>。
       </p>
-      <details className="majority-wire-help">
-        <summary>線が2本あるのは？</summary>
-        <p>
-          2本で1つの信号です。上の線は入力の数字、下の線は反対の数字を運びます。票はA・B・Cの数字を1票ずつ数えます。青が0、黄が1です。
-        </p>
-      </details>
+      {!compact && (
+        <details className="majority-wire-help">
+          <summary>線が2本あるのは？</summary>
+          <p>
+            2本で1つの信号です。上の線は入力の数字、下の線は反対の数字を運びます。票はA・B・Cの数字を1票ずつ数えます。青が0、黄が1です。
+          </p>
+        </details>
+      )}
     </section>
   );
 }

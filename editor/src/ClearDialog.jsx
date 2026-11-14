@@ -24,6 +24,16 @@ export function ClearDialog({ completion, nextName, onClose, onNext }) {
           {completion.name} {optimal ? "理論最小クリア！" : "クリア！"}
         </h2>
         <p id="clear-summary">すべての入力で正しく動きました。</p>
+        {(completion.reward === "AND" || completion.name === "AND") && (
+          <p className="clear-auto-check">
+            全4通りの入力を、ゲームが自動チェックしました。
+          </p>
+        )}
+        {completion.practice && (
+          <p className="clear-auto-check">
+            復習中です。元のゲームの進捗は変わりません。
+          </p>
+        )}
         <p className="clear-explanation">{completion.explanation}</p>
         <p className="clear-score">
           パラメトロン <strong>{completion.cost}</strong>個

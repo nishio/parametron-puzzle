@@ -66,7 +66,7 @@ function ConstantNode({ data }) {
       aria-label={`固定信号${data.value}`}
     >
       <header className="node-title">
-        <span>固定信号</span>
+        <span>{data.thirdVote ? "固定0" : "固定信号"}</span>
         <strong style={{ color: color(data.value) }}>{data.value}</strong>
       </header>
       <Source data={data} name={String(data.value)} top="50%" />
@@ -278,6 +278,7 @@ function GateNode({ data }) {
                 {isFixedInput(edge)
                   ? "固定" + edge.source
                   : edge.source ||
+                    (data.guideLesson && port === 2 ? "空き入力" : "") ||
                     (edge.socket
                       ? edge.socket + " 未接続"
                       : "入力" + (port + 1))}
@@ -311,7 +312,7 @@ function OutputNode({ data }) {
         <strong className="output-value" style={{ color: color(data.value) }}>
           {valueText(data.value)}
         </strong>
-        <span>{outputLabel(data.name)}</span>
+        <span>{data.pending ? "未接続" : outputLabel(data.name)}</span>
       </div>
       {!data.isExample && (
         <div className="compact-expected">正解 {data.expected}</div>

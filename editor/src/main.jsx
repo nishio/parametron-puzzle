@@ -41,7 +41,12 @@ import { nodeTypes, color } from "./nodes.jsx";
 import { autoArrange, preservePlacement } from "./layout.js";
 import { edgeTypes } from "./PairEdge.jsx";
 import { ClearDialog } from "./ClearDialog.jsx";
-import { Welcome, OnboardingCoach, MajorityReading } from "./Welcome.jsx";
+import {
+  Welcome,
+  OnboardingCoach,
+  MajorityReading,
+  AndCoach,
+} from "./Welcome.jsx";
 import {
   isFixedInput,
   placeBlueprint,
@@ -49,6 +54,8 @@ import {
 } from "./blueprints.js";
 
 const SAVE_KEY = "parametron-puzzle:v2";
+const AND_PRACTICE =
+  new URLSearchParams(location.search).get("and-guide") === "1";
 const tutorialCount = levels.findIndex((level) => level.id === "xor");
 const chapterLabel = (index) =>
   index < tutorialCount
@@ -61,6 +68,14 @@ const VIEW_PADDING = {
   left: "56px",
 };
 const readGame = () => {
+  if (AND_PRACTICE)
+    return normalizeGame({
+      version: 2,
+      levelId: "and",
+      introDone: true,
+      onboarding: { andStep: 0 },
+      boards: { and: { ...freshBoard(levels[1]), input: 1 } },
+    });
   try {
     return normalizeGame(JSON.parse(localStorage.getItem(SAVE_KEY)));
   } catch {
@@ -83,14 +98,17 @@ function App() {
     [storageOk, setStorageOk] = useState(true),
     [selectedEdge, setSelectedEdge] = useState(null),
     [sideOpen, setSideOpen] = useState(
-      game.level === 0 && !game.introDone ? false : innerWidth >= 900,
+      (game.level === 0 && !game.introDone) ||
+        (levels[game.level].id === "and" && game.onboarding.andStep < 5)
+        ? false
+        : innerWidth >= 900,
     ),
     [clearDialog, setClearDialog] = useState(null),
     [guideSourceSelected, setGuideSourceSelected] = useState(false),
     [welcomeRequested, setWelcomeRequested] = useState(
       () => new URLSearchParams(location.search).get("welcome") === "1",
     );
-  const wireGuideActive = useRef(!game.onboarding.firstWireDone),
+  const wireGuideActive = useRef(game.onboarding.andStep < 5),
     resumeLevel = useRef(game.level);
   const announcedClears = useRef(new Set(Object.keys(game.bests)));
   const [nodes, setNodes, onNodesChange] = useNodesState([]),
@@ -109,18 +127,25 @@ function App() {
     info = lessons[level.id];
   const guidedIntro = level.demo && !game.introDone,
     majorityStep = game.onboarding.majorityStep,
+    andStep = game.onboarding.andStep,
     guidedWire = level.id === "and" && wireGuideActive.current,
     guidedBoard = guidedIntro || guidedWire,
-    guideDone = guidedIntro
-      ? game.onboarding.majorityDone
-      : game.onboarding.firstWireDone;
+    guideDone = guidedIntro ? game.onboarding.majorityDone : andStep === 5;
   function install(next) {
     next.levelId = levels[next.level].id;
     const l = levels[next.level],
       b =
         next.boards[l.id] || (next.boards[l.id] = freshBoard(l, next.library));
     const check = score(l, b, next.library);
-    if (!l.demo && check.clear) {
+    if (
+      !l.demo &&
+      check.clear &&
+      !(
+        l.id === "and" &&
+        wireGuideActive.current &&
+        next.onboarding.andStep < 5
+      )
+    ) {
       const newUnlock = !!l.reward && !next.library[l.reward];
       const newMinimum =
         check.cost === l.minimum && (next.bests[l.id] ?? Infinity) > l.minimum;
@@ -135,7 +160,7 @@ function App() {
     gameRef.current = next;
     setGame(next);
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(next));
+      if (!AND_PRACTICE) localStorage.setItem(SAVE_KEY, JSON.stringify(next));
       setStorageOk(true);
     } catch {
       setStorageOk(false);
@@ -161,6 +186,10 @@ function App() {
     };
   }
   function advance() {
+    if (AND_PRACTICE) {
+      location.assign("./");
+      return;
+    }
     if (
       levels[gameRef.current.level].demo &&
       gameRef.current.onboarding.majorityStep === 0
@@ -181,7 +210,13 @@ function App() {
       return;
     setClearDialog(null);
     const next = clone(gameRef.current);
-    if (levels[next.level].demo) next.introDone = true;
+    if (levels[next.level].demo) {
+      next.introDone = true;
+      if (wireGuideActive.current && !next.boards.and) {
+        next.boards.and = freshBoard(levels[1]);
+        next.boards.and.input = next.boards.intro.input >> 1;
+      }
+    }
     if (levels[next.level].id === "and") wireGuideActive.current = false;
     next.level++;
     install(next);
@@ -228,6 +263,13 @@ function App() {
     if (l.demo || l.lockedWiring) return false;
     const target = destination(c),
       source = connectionSource(c);
+    if (l.id === "and" && wireGuideActive.current)
+      return (
+        current.onboarding.andStep === 1 &&
+        source === "0" &&
+        target?.index === 0 &&
+        target?.port === 2
+      );
     if (
       !target ||
       ![
@@ -264,6 +306,7 @@ function App() {
         target.port === 2
       ) {
         next.onboarding.firstWireDone = true;
+        if (wireGuideActive.current) next.onboarding.andStep = 2;
       }
     }, "配線をつなぎました。");
     setSelectedEdge(null);
@@ -308,7 +351,7 @@ function App() {
       changed = lastStage.current !== stage;
     lastStage.current = stage;
     const base = {
-      draggable: !l.demo,
+      draggable: !guidedBoard,
       deletable: false,
       dragHandle: ".node-title, .symbol-drag",
     };
@@ -319,32 +362,36 @@ function App() {
       position: { x: 0, y: 0 },
       data: {
         name,
-        majorityIntro: l.demo && !game.introDone,
+        majorityIntro: guidedBoard,
         value: v.values[name],
-        demo: l.demo || l.lockedWiring,
+        demo: l.demo || l.lockedWiring || guidedWire,
         disabled:
-          l.demo &&
-          !game.onboarding.majorityDone &&
-          name !==
-            (game.onboarding.majorityStep === 1
-              ? "B"
-              : game.onboarding.majorityStep === 2
-                ? "A"
-                : ""),
+          (guidedWire && !(andStep === 3 && name === "B")) ||
+          (l.demo &&
+            !game.onboarding.majorityDone &&
+            name !==
+              (game.onboarding.majorityStep === 1
+                ? "B"
+                : game.onboarding.majorityStep === 2
+                  ? "A"
+                  : "")),
         guideTarget:
-          l.demo &&
-          !game.introDone &&
-          !game.onboarding.majorityDone &&
-          name ===
-            (game.onboarding.majorityStep === 1
-              ? "B"
-              : game.onboarding.majorityStep === 2
-                ? "A"
-                : ""),
+          (guidedWire && andStep === 3 && name === "B") ||
+          (l.demo &&
+            !game.introDone &&
+            !game.onboarding.majorityDone &&
+            name ===
+              (game.onboarding.majorityStep === 1
+                ? "B"
+                : game.onboarding.majorityStep === 2
+                  ? "A"
+                  : "")),
         toggle: () =>
           commit(
             (board, next) => {
               board.input ^= 1 << (l.inputs.length - 1 - i);
+              if (guidedWire && next.onboarding.andStep === 3 && name === "B")
+                next.onboarding.andStep = 4;
               if (l.demo && next.onboarding.majorityStep === 1 && name === "B")
                 next.onboarding.majorityStep = 2;
               else if (
@@ -362,7 +409,7 @@ function App() {
       },
     }));
     if (!l.demo)
-      for (const value of [0, 1])
+      for (const value of guidedWire ? [0] : [0, 1])
         nextNodes.push({
           id: "constant:" + value,
           type: "constant",
@@ -370,11 +417,13 @@ function App() {
           position: { x: 0, y: 0 },
           data: {
             value,
-            demo: !!l.lockedWiring,
+            thirdVote: guidedWire,
+            demo: !!l.lockedWiring || (guidedWire && andStep !== 1),
             guideSource:
               l.id === "and" &&
               wireGuideActive.current &&
-              !game.onboarding.firstWireDone &&
+              andStep === 1 &&
+              !guideSourceSelected &&
               value === 0,
           },
         });
@@ -422,15 +471,16 @@ function App() {
           cost: partCost(gate.type, game.library),
           values: v.values,
           value: v.values["P" + (index + 1)],
-          majorityIntro: l.demo && !game.introDone,
-          demo: l.demo || l.lockedWiring,
+          majorityIntro: guidedBoard,
+          guideLesson: guidedWire,
+          demo: l.demo || l.lockedWiring || (guidedWire && andStep !== 1),
           invert: l.invert,
           tutorial: l.tutorial,
           tutorialPort: l.tutorialPort,
           guidePort:
             l.id === "and" &&
             wireGuideActive.current &&
-            !game.onboarding.firstWireDone &&
+            andStep === 1 &&
             guideSourceSelected
               ? 2
               : null,
@@ -456,7 +506,8 @@ function App() {
           name,
           value: v.outputs[name],
           inputValue: v.values[b.outputs[name].source],
-          isExample: l.demo,
+          isExample: l.demo || guidedWire,
+          pending: guidedWire && !game.onboarding.firstWireDone,
           expected: expected[name],
           demo: l.demo || l.lockedWiring,
           invert: l.invert && !l.tutorial,
@@ -482,8 +533,8 @@ function App() {
         type: "pair",
         pathOptions: { curvature: 0.25 },
         interactionWidth: 24,
-        deletable: !l.demo && !l.lockedWiring,
-        reconnectable: !l.demo && !l.lockedWiring,
+        deletable: !l.demo && !l.lockedWiring && !guidedWire,
+        reconnectable: !l.demo && !l.lockedWiring && !guidedWire,
         style: { stroke: color(readEdge(edge, v.values)), strokeWidth: 2.5 },
         label: undefined,
         labelStyle: { fontSize: 12, fill: "#1e324a" },
@@ -497,30 +548,22 @@ function App() {
     );
     l.outputs.forEach((name) => add(b.outputs[name], "output:" + name, "in"));
     const arranged = autoArrange(nextNodes, nextEdges);
-    if (l.demo || (mobile && l.id === "and" && wireGuideActive.current)) {
-      const points = l.demo
-        ? mobile
-          ? {
-              "input:A": { x: 0, y: 0 },
-              "input:B": { x: 0, y: 72 },
-              "input:C": { x: 0, y: 144 },
-              "gate:0": { x: 132, y: 32 },
-              "output:Y": { x: 132, y: 216 },
-            }
-          : {
-              "input:A": { x: 0, y: 0 },
-              "input:B": { x: 0, y: 76 },
-              "input:C": { x: 0, y: 152 },
-              "gate:0": { x: 180, y: 36 },
-              "output:Y": { x: 430, y: 64 },
-            }
+    if (guidedBoard) {
+      const third = l.demo ? "input:C" : "constant:0";
+      const points = mobile
+        ? {
+            "input:A": { x: 0, y: 0 },
+            "input:B": { x: 0, y: 72 },
+            [third]: { x: 0, y: 144 },
+            "gate:0": { x: 132, y: 32 },
+            "output:Y": { x: 132, y: 216 },
+          }
         : {
             "input:A": { x: 0, y: 0 },
-            "input:B": { x: 0, y: 80 },
-            "constant:0": { x: 0, y: 200 },
-            "constant:1": { x: 0, y: 280 },
-            "gate:0": { x: 140, y: 80 },
-            "output:Y": { x: 140, y: 350 },
+            "input:B": { x: 0, y: 76 },
+            [third]: { x: 0, y: 152 },
+            "gate:0": { x: 180, y: 36 },
+            "output:Y": { x: 430, y: 64 },
           };
       arranged.forEach((node) => {
         node.position = points[node.id] || node.position;
@@ -539,10 +582,11 @@ function App() {
       const existing = new Map(previous.map((node) => [node.id, node]));
       if (changed) fitNeeded.current = true;
       const placed =
-        changed || l.demo
+        changed || guidedBoard
           ? arranged.map((node) => ({
               ...node,
-              position: (!l.demo && b.flow?.[mode]?.[node.id]) || node.position,
+              position:
+                (!guidedBoard && b.flow?.[mode]?.[node.id]) || node.position,
             }))
           : preservePlacement(arranged, previous, center, b.flow?.[mode]);
       return placed.map((node) => ({
@@ -557,7 +601,7 @@ function App() {
           previous.find((item) => item.id === edge.id)?.selected || false,
       })),
     );
-  }, [game, mode, mobile, guideSourceSelected]);
+  }, [game, mode, mobile, guideSourceSelected, guidedBoard]);
   useEffect(() => {
     if (initialized && placementSaveNeeded.current) {
       placementSaveNeeded.current = false;
@@ -581,7 +625,7 @@ function App() {
       requestAnimationFrame(() =>
         requestAnimationFrame(() =>
           flow.fitView({
-            padding: guidedIntro ? "20px" : VIEW_PADDING,
+            padding: guidedBoard ? "20px" : VIEW_PADDING,
             minZoom: 0.2,
             maxZoom: 1,
             duration: 0,
@@ -594,7 +638,7 @@ function App() {
     const timer = setTimeout(
       () =>
         flow.fitView({
-          padding: guidedIntro ? "20px" : VIEW_PADDING,
+          padding: guidedBoard ? "20px" : VIEW_PADDING,
           maxZoom: 1,
           duration: 150,
         }),
@@ -738,7 +782,7 @@ function App() {
     );
   return (
     <div
-      className={`page${sideOpen ? " sidebar-open" : ""}${guidedBoard ? " guided-board" : ""}${guidedBoard && guideDone ? " guide-complete" : ""}${guidedIntro ? " majority-intro" : ""}`}
+      className={`page${sideOpen ? " sidebar-open" : ""}${guidedBoard ? " guided-board focused-lesson" : ""}${guidedBoard && guideDone ? " guide-complete" : ""}${guidedIntro ? " majority-intro" : ""}${guidedWire ? " and-intro" : ""}`}
       data-level={level.id}
     >
       <header className="site-header">
@@ -750,6 +794,11 @@ function App() {
             PARAMETRON<small>計算機パズル</small>
           </span>
         </a>
+        {AND_PRACTICE && (
+          <a className="practice-return" href="./">
+            練習を終了して戻る
+          </a>
+        )}
         <div className="lesson-navigation">
           <span>{chapterLabel(game.level)}</span>
           <label>
@@ -780,7 +829,7 @@ function App() {
           </label>
         </div>
 
-        {!guidedIntro && (!guidedBoard || guideDone) && (
+        {!guidedBoard && (
           <button
             className="sidebar-toggle"
             aria-expanded={sideOpen}
@@ -948,9 +997,11 @@ function App() {
 
             <footer>
               <p>
-                {storageOk
-                  ? "進捗・配置はこのブラウザに自動保存されます。"
-                  : "この環境では保存できません。ページを閉じるまで遊べます。"}
+                {AND_PRACTICE
+                  ? "復習中です。元のゲームの進捗は変わりません。"
+                  : storageOk
+                    ? "進捗・配置はこのブラウザに自動保存されます。"
+                    : "この環境では保存できません。ページを閉じるまで遊べます。"}
               </p>
               <a href="https://reactflow.dev/">React Flow</a>
               <span>
@@ -960,7 +1011,7 @@ function App() {
           </aside>
         )}
         <div className="canvas-column">
-          {guidedBoard && (
+          {guidedIntro && (
             <OnboardingCoach
               kind={guidedIntro ? "signal" : "wire"}
               done={
@@ -972,8 +1023,11 @@ function App() {
               step={majorityStep}
             />
           )}
+          {guidedWire && (
+            <AndCoach step={andStep} sourceSelected={guideSourceSelected} />
+          )}
           <div className="toolbar">
-            {!level.demo && (
+            {!level.demo && !guidedWire && (
               <>
                 <button
                   disabled={!undo.current[level.id]?.length}
@@ -1091,7 +1145,7 @@ function App() {
                 isValidConnection={validConnection}
                 onDelete={deleteElements}
                 onEdgeClick={(_, edge) =>
-                  !guidedIntro && setSelectedEdge(edge.id)
+                  !guidedBoard && setSelectedEdge(edge.id)
                 }
                 onNodeClick={() => setSelectedEdge(null)}
                 onPaneClick={() => setSelectedEdge(null)}
@@ -1103,15 +1157,19 @@ function App() {
                 maxZoom={1.8}
                 zoomOnScroll={false}
                 zoomOnDoubleClick={false}
-                panOnDrag={!guidedIntro}
-                zoomOnPinch={!guidedIntro}
-                preventScrolling={!guidedIntro}
-                elementsSelectable={!guidedIntro}
-                nodesConnectable={!level.demo && !level.lockedWiring}
+                panOnDrag={!guidedBoard}
+                zoomOnPinch={!guidedBoard}
+                preventScrolling={!guidedBoard}
+                elementsSelectable={!guidedBoard}
+                nodesConnectable={
+                  !level.demo &&
+                  !level.lockedWiring &&
+                  (!guidedWire || andStep === 1)
+                }
                 deleteKeyCode={["Backspace", "Delete"]}
               >
-                {!guidedIntro && <Background gap={20} size={1} />}
-                {!guidedIntro && (!guidedBoard || guideDone) && (
+                {!guidedBoard && <Background gap={20} size={1} />}
+                {!guidedBoard && (
                   <Controls
                     showInteractive={false}
                     fitViewOptions={{ padding: VIEW_PADDING }}
@@ -1126,14 +1184,14 @@ function App() {
                     }
                   />
                 )}
-                {!guidedIntro && (!guidedBoard || guideDone) && (
+                {!guidedBoard && (
                   <Panel position="top-left" className="canvas-key">
                     <WiringGlyph inverted={false} />
                     <span>2本で1信号</span>
                     <span>端子から接続</span>
                   </Panel>
                 )}
-                {!guidedIntro && (!guidedBoard || guideDone) && (
+                {!guidedBoard && (
                   <Panel position="top-right">
                     <button onClick={arrange} disabled={level.demo}>
                       配置を整える
@@ -1204,7 +1262,49 @@ function App() {
               result={observed.outputs.Y}
             />
           )}
+          {guidedWire &&
+            (andStep >= 2 ? (
+              <MajorityReading
+                values={[observed.values.A, observed.values.B, 0]}
+                result={observed.outputs.Y}
+                compact
+              />
+            ) : (
+              <div className="and-connection-note">
+                <strong>固定0 → 多数決の空き入力</strong>
+                <p>3票目は、線をつなぐと0に決まります。</p>
+              </div>
+            ))}
           <div className="completion">
+            {guidedWire && [0, 2, 4].includes(andStep) && (
+              <button
+                className="primary"
+                onClick={() =>
+                  commit(
+                    (b, next) => {
+                      if (andStep === 2) b.input = 3;
+                      next.onboarding.andStep =
+                        andStep === 0 ? 1 : andStep === 2 ? 3 : 5;
+                    },
+                    "",
+                    false,
+                  )
+                }
+              >
+                {andStep === 0
+                  ? "自分で線をつなぐ"
+                  : andStep === 2
+                    ? "AとBを1にする"
+                    : "ANDクリアを確認"}
+              </button>
+            )}
+            {guidedWire && [1, 3].includes(andStep) && (
+              <span className="majority-action-hint">
+                {andStep === 1
+                  ? "光っている接続口を順に押そう"
+                  : "光っているBの数字を押そう"}
+              </span>
+            )}
             {guidedIntro && majorityStep > 0 && majorityStep < 3 && (
               <span className="majority-action-hint">
                 光っている数字を押してみよう
@@ -1217,7 +1317,7 @@ function App() {
                   ? `クリア！ 使用${result.cost}個 / 自己ベスト${game.bests[level.id] ?? result.cost}個${result.cost === level.minimum ? " · 理論最小クリア" : ""}`
                   : `${result.total}通り中${result.matched}通りが正解`}
             </p>
-            {!level.demo && result.clear && (
+            {!level.demo && !guidedWire && result.clear && (
               <button
                 className="clear-result-button"
                 onClick={() =>
@@ -1228,6 +1328,7 @@ function App() {
               </button>
             )}
             {game.level < levels.length - 1 &&
+              !guidedWire &&
               (!guidedIntro || majorityStep === 0 || majorityStep === 3) && (
                 <button
                   className="primary"
@@ -1238,11 +1339,13 @@ function App() {
                   }
                   onClick={advance}
                 >
-                  {level.demo && majorityStep === 0
-                    ? "多数決を試す"
-                    : "次へ：" +
-                      lessons[levels[game.level + 1].id].short +
-                      " →"}
+                  {AND_PRACTICE
+                    ? "元のゲームに戻る"
+                    : level.demo && majorityStep === 0
+                      ? "多数決を試す"
+                      : "次へ：" +
+                        lessons[levels[game.level + 1].id].short +
+                        " →"}
                 </button>
               )}
           </div>
@@ -1250,13 +1353,23 @@ function App() {
       </main>
       {clearDialog && (
         <ClearDialog
-          completion={clearDialog}
+          completion={
+            AND_PRACTICE
+              ? { ...clearDialog, reward: null, practice: true }
+              : clearDialog
+          }
           nextName={
-            clearDialog.index < levels.length - 1
+            !AND_PRACTICE && clearDialog.index < levels.length - 1
               ? lessons[levels[clearDialog.index + 1].id].short
               : null
           }
-          onClose={() => setClearDialog(null)}
+          onClose={() => {
+            if (levels[clearDialog.index].id === "and") {
+              wireGuideActive.current = false;
+              fitNeeded.current = true;
+            }
+            setClearDialog(null);
+          }}
           onNext={advance}
         />
       )}

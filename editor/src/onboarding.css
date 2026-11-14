@@ -171,23 +171,23 @@
 }
 
 /* The first circuit is a small lesson, with its explanation and action nearby. */
-.majority-intro {
+.focused-lesson {
   overflow-y: auto;
   background: #f2f5f8;
 }
-.majority-intro .site-header {
+.focused-lesson .site-header {
   border-bottom: 0;
   background: transparent;
 }
-.majority-intro .lesson-navigation {
+.focused-lesson .lesson-navigation {
   display: none;
 }
-.majority-intro .workspace {
+.focused-lesson .workspace {
   flex: 0 0 auto;
   justify-content: center;
   padding: 20px 24px 40px;
 }
-.majority-intro .canvas-column {
+.focused-lesson .canvas-column {
   flex: 0 1 720px;
   min-width: 0;
   overflow: hidden;
@@ -196,48 +196,48 @@
   background: #fff;
   box-shadow: 0 12px 36px #20364d08;
 }
-.majority-intro .onboarding-coach {
+.focused-lesson .onboarding-coach {
   padding: 24px 28px 8px;
   min-height: 148px;
   border: 0;
 }
-.majority-intro .onboarding-step {
+.focused-lesson .onboarding-step {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
   color: #526b80;
   margin-bottom: 10px;
 }
-.majority-intro .onboarding-coach h1 {
+.focused-lesson .onboarding-coach h1 {
   font-size: 24px;
   margin-bottom: 10px;
 }
-.majority-intro .onboarding-coach > p:last-child {
+.focused-lesson .onboarding-coach > p:last-child {
   max-width: 570px;
   color: #40596f;
   font-size: 14px;
 }
-.majority-intro .canvas-area {
+.focused-lesson .canvas-area {
   flex: 0 0 264px;
 }
-.majority-intro .flow-frame {
+.focused-lesson .flow-frame {
   background: #fff;
 }
-.majority-intro .react-flow__pane {
+.focused-lesson .react-flow__pane {
   touch-action: pan-y;
 }
-.majority-intro .signal-switch:disabled {
+.focused-lesson .signal-switch:disabled {
   opacity: 1;
 }
-.majority-intro .guided-signal {
+.focused-lesson .guided-signal {
   box-shadow: none;
 }
-.majority-intro .guided-signal .signal-switch {
+.focused-lesson .guided-signal .signal-switch {
   box-shadow: 0 0 0 4px #9fc9e9;
   border: 2px solid #276eaf;
   background: #edf5fc;
 }
-.majority-intro .signal-switch:focus-visible {
+.focused-lesson .signal-switch:focus-visible {
   outline: 3px solid #20364d;
   outline-offset: 4px;
 }
@@ -298,13 +298,13 @@
   margin: 8px auto;
   max-width: 470px;
 }
-.majority-intro .completion {
+.focused-lesson .completion {
   min-height: 78px;
   padding: 12px 28px 24px;
   border: 0;
   justify-content: center;
 }
-.majority-intro .completion .primary {
+.focused-lesson .completion .primary {
   min-height: 46px;
   min-width: 200px;
   font-size: 14px;
@@ -314,27 +314,27 @@
   color: #40596f;
 }
 @media (max-width: 700px) {
-  .majority-intro .workspace {
+  .focused-lesson .workspace {
     padding: 8px 10px 24px;
   }
-  .majority-intro .canvas-column {
+  .focused-lesson .canvas-column {
     flex-basis: 420px;
     border-radius: 14px;
   }
-  .majority-intro .onboarding-coach {
+  .focused-lesson .onboarding-coach {
     padding: 20px 18px 4px;
     min-height: 154px;
   }
-  .majority-intro .onboarding-coach h1 {
+  .focused-lesson .onboarding-coach h1 {
     font-size: 20px;
   }
-  .majority-intro .onboarding-coach > p:last-child {
+  .focused-lesson .onboarding-coach > p:last-child {
     font-size: 13px;
   }
-  .majority-intro .canvas-area {
+  .focused-lesson .canvas-area {
     flex-basis: 348px;
   }
-  .majority-intro .compact-signal .signal-switch {
+  .focused-lesson .compact-signal .signal-switch {
     width: 52px;
     height: 52px;
     min-height: 52px;
@@ -351,13 +351,71 @@
     min-width: 114px;
     padding: 8px 12px;
   }
-  .majority-intro .completion {
+  .focused-lesson .completion {
     padding: 8px 16px 20px;
     min-height: 74px;
   }
 }
 @media (max-width: 360px) {
-  .majority-intro .onboarding-coach {
+  .focused-lesson .onboarding-coach {
     min-height: 192px;
+  }
+}
+.focused-lesson .guide-source .port-poles,
+.focused-lesson .guide-target .port-poles {
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.focused-lesson .guide-source::before,
+.focused-lesson .guide-target::before {
+  inset: 0;
+  background: #9fc9e930;
+  border: 2px solid #527fa0;
+}
+.and-connection-note {
+  min-height: 106px;
+  padding: 16px 20px;
+  color: #40596f;
+  text-align: center;
+  font-size: 13px;
+}
+.and-connection-note p {
+  margin: 10px 0 0;
+}
+.and-intro .majority-reading {
+  min-height: 106px;
+}
+.and-intro .onboarding-coach {
+  min-height: 148px;
+}
+.and-intro .constant-node .node-title > span {
+  color: #40596f;
+  font-size: 12px;
+  font-weight: 600;
+}
+.clear-auto-check {
+  color: #40596f;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.practice-return {
+  margin-left: auto;
+  padding: 10px 0;
+  font-size: 12px;
+  color: #40596f;
+}
+@media (max-width: 700px) {
+  .and-intro .onboarding-coach {
+    min-height: 166px;
+  }
+}
+@media (max-width: 360px) {
+  .and-intro .onboarding-coach {
+    min-height: 190px;
+  }
+  .and-intro .canvas-area {
+    flex-basis: 306px;
   }
 }
