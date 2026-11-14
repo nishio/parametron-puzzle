@@ -593,6 +593,25 @@ let browser;
       "The circuit must use most of the viewport height",
     );
     assert.ok(
+      await page
+        .getByRole("heading", {
+          name: "3つの数字の、多い方を出す部品です。",
+          exact: true,
+        })
+        .isVisible(),
+      "Explain the three-input majority rule before asking for an action",
+    );
+    assert.ok(
+      await page
+        .getByText("A・B・Cが1票ずつ。今は0が2票なので、結果は0です。", {
+          exact: true,
+        })
+        .isVisible(),
+    );
+    await page
+      .getByRole("button", { name: "多数決を試す", exact: true })
+      .click();
+    assert.ok(
       await page.getByRole("button", { name: /次へ：AND/ }).isDisabled(),
       "The first action must be tried before advancing",
     );
@@ -610,6 +629,25 @@ let browser;
         .querySelector('[data-testid="status"]')
         .textContent.includes("1が2票"),
     );
+    assert.ok(
+      await page.getByRole("button", { name: /次へ：AND/ }).isDisabled(),
+      "Both majority outcomes must be tried",
+    );
+    assert.equal((await stored(page)).onboarding.majorityStep, 2);
+    await page.screenshot({
+      path: path.join(out, "majority-one-" + width + ".png"),
+      fullPage: true,
+    });
+    await page
+      .getByRole("button", { name: "入力Aを切り替える", exact: true })
+      .click();
+    await page.waitForFunction(() =>
+      document
+        .querySelector('[data-testid="status"]')
+        .textContent.includes("出力0"),
+    );
+    assert.equal((await stored(page)).onboarding.majorityDone, true);
+    assert.equal((await stored(page)).onboarding.majorityStep, 3);
     assert.ok(
       await page.getByRole("button", { name: /次へ：AND/ }).isEnabled(),
     );

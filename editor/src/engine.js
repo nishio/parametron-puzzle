@@ -597,6 +597,7 @@ function normalizeGame(candidate) {
     onboarding: {
       welcomeDone: false,
       majorityDone: false,
+      majorityStep: 0,
       firstWireDone: false,
     },
     boards: {},
@@ -609,6 +610,17 @@ function normalizeGame(candidate) {
     game.introDone || candidate.onboarding?.welcomeDone === true;
   game.onboarding.majorityDone =
     game.introDone || candidate.onboarding?.majorityDone === true;
+  game.onboarding.majorityStep = game.onboarding.majorityDone
+    ? 3
+    : Math.max(
+        0,
+        Math.min(
+          2,
+          Number.isInteger(candidate.onboarding?.majorityStep)
+            ? candidate.onboarding.majorityStep
+            : 0,
+        ),
+      );
   for (const level of levels.filter((item) => item.reward)) {
     const part = normalizeBoard(level, candidate.library?.[level.reward], {});
     if (score(level, part, {}).clear) game.library[level.reward] = part;

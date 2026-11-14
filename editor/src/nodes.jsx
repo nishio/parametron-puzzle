@@ -204,7 +204,7 @@ function GateNode({ data }) {
   return (
     <div className="graph-node compact-gate" data-presentation="symbol">
       <header className="node-title">
-        <strong>{name}</strong>
+        <strong>{data.majorityIntro ? "多数決" : name}</strong>
         <span>パラメトロン</span>
         {data.editable && (
           <button

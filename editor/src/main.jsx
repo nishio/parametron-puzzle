@@ -108,6 +108,7 @@ function App() {
   const observed = evaluate(level, board, board.input, game.library),
     info = lessons[level.id];
   const guidedIntro = level.demo && !game.introDone,
+    majorityStep = game.onboarding.majorityStep,
     guidedWire = level.id === "and" && wireGuideActive.current,
     guidedBoard = guidedIntro || guidedWire,
     guideDone = guidedIntro
@@ -160,6 +161,19 @@ function App() {
     };
   }
   function advance() {
+    if (
+      levels[gameRef.current.level].demo &&
+      gameRef.current.onboarding.majorityStep === 0
+    ) {
+      commit(
+        (board, next) => {
+          next.onboarding.majorityStep = 1;
+        },
+        "",
+        false,
+      );
+      return;
+    }
     if (
       levels[gameRef.current.level].demo &&
       !gameRef.current.onboarding.majorityDone
@@ -307,17 +321,39 @@ function App() {
         name,
         value: v.values[name],
         demo: l.demo || l.lockedWiring,
-        disabled: l.demo && !game.onboarding.majorityDone && name !== "B",
+        disabled:
+          l.demo &&
+          !game.onboarding.majorityDone &&
+          name !==
+            (game.onboarding.majorityStep === 1
+              ? "B"
+              : game.onboarding.majorityStep === 2
+                ? "A"
+                : ""),
         guideTarget:
           l.demo &&
           !game.introDone &&
           !game.onboarding.majorityDone &&
-          name === "B",
+          name ===
+            (game.onboarding.majorityStep === 1
+              ? "B"
+              : game.onboarding.majorityStep === 2
+                ? "A"
+                : ""),
         toggle: () =>
           commit(
             (board, next) => {
               board.input ^= 1 << (l.inputs.length - 1 - i);
-              if (l.demo && name === "B") next.onboarding.majorityDone = true;
+              if (l.demo && next.onboarding.majorityStep === 1 && name === "B")
+                next.onboarding.majorityStep = 2;
+              else if (
+                l.demo &&
+                next.onboarding.majorityStep === 2 &&
+                name === "A"
+              ) {
+                next.onboarding.majorityStep = 3;
+                next.onboarding.majorityDone = true;
+              }
             },
             "",
             false,
@@ -385,6 +421,7 @@ function App() {
           cost: partCost(gate.type, game.library),
           values: v.values,
           value: v.values["P" + (index + 1)],
+          majorityIntro: l.demo && !game.introDone,
           demo: l.demo || l.lockedWiring,
           invert: l.invert,
           tutorial: l.tutorial,
@@ -571,6 +608,7 @@ function App() {
       next.introDone = false;
       next.onboarding.welcomeDone = false;
       next.onboarding.majorityDone = false;
+      next.onboarding.majorityStep = 0;
       next.boards.intro = freshBoard(levels[0]);
       setSideOpen(false);
     }
@@ -660,6 +698,7 @@ function App() {
           next.introDone = false;
           next.onboarding.welcomeDone = true;
           next.onboarding.majorityDone = false;
+          next.onboarding.majorityStep = 0;
           next.boards.intro = freshBoard(levels[0]);
           closeWelcomeLink();
           setSideOpen(false);
@@ -674,6 +713,7 @@ function App() {
                 next.introDone = true;
                 next.onboarding.welcomeDone = true;
                 next.onboarding.majorityDone = true;
+                next.onboarding.majorityStep = 3;
                 install(next);
                 setSideOpen(innerWidth >= 900);
               }
@@ -914,6 +954,7 @@ function App() {
                   : game.onboarding.firstWireDone
               }
               sourceSelected={guideSourceSelected}
+              step={majorityStep}
               result={observed.outputs.Y}
               votes={
                 level.inputs.filter(
@@ -1146,9 +1187,7 @@ function App() {
           <div className="completion">
             <p data-testid="status">
               {level.demo
-                ? game.onboarding.majorityDone
-                  ? `1が${level.inputs.reduce((sum, name) => sum + observed.values[name], 0)}票 → 出力${observed.outputs.Y}`
-                  : "まずは、Bの数字を押してみよう"
+                ? `1が${level.inputs.reduce((sum, name) => sum + observed.values[name], 0)}票 → 出力${observed.outputs.Y}`
                 : result.clear
                   ? `クリア！ 使用${result.cost}個 / 自己ベスト${game.bests[level.id] ?? result.cost}個${result.cost === level.minimum ? " · 理論最小クリア" : ""}`
                   : `${result.total}通り中${result.matched}通りが正解`}
@@ -1167,11 +1206,15 @@ function App() {
               <button
                 className="primary"
                 disabled={
-                  level.demo ? !game.onboarding.majorityDone : !result.clear
+                  level.demo
+                    ? majorityStep !== 0 && !game.onboarding.majorityDone
+                    : !result.clear
                 }
                 onClick={advance}
               >
-                次へ：{lessons[levels[game.level + 1].id].short} →
+                {level.demo && majorityStep === 0
+                  ? "多数決を試す"
+                  : "次へ：" + lessons[levels[game.level + 1].id].short + " →"}
               </button>
             )}
           </div>

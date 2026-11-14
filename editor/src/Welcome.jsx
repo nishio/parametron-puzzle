@@ -53,7 +53,14 @@ export function Welcome({ onStart, onResume }) {
   );
 }
 
-export function OnboardingCoach({ kind, done, sourceSelected, result, votes }) {
+export function OnboardingCoach({
+  kind,
+  done,
+  sourceSelected,
+  result,
+  votes,
+  step,
+}) {
   return (
     <section
       className="onboarding-coach"
@@ -62,26 +69,32 @@ export function OnboardingCoach({ kind, done, sourceSelected, result, votes }) {
     >
       <h1 id="onboarding-task">
         {kind === "signal"
-          ? done
-            ? `${result}が${votes}つで、結果も${result}です。`
-            : "光っているBの0を押してみよう。"
+          ? step === 0
+            ? "3つの数字の、多い方を出す部品です。"
+            : step === 1
+              ? "Bの0を1にしてみよう。"
+              : `${result}が${votes}票なので、結果は${result}。`
           : done
             ? "回路が完成しました！"
             : sourceSelected
               ? "次は、光っている空き端子を押そう。"
               : "固定0の、光っている端子を押そう。"}
       </h1>
-      {(kind !== "signal" || done) && (
-        <p>
-          {kind === "signal"
-            ? "この素子は、3つの数字の多いほうを出します。これが多数決です。"
-            : done
-              ? "AとBが両方1のときだけ、結果が1になります。"
-              : sourceSelected
-                ? "枠の中の丸は、どちらでもOK。2本まとめてつながります。"
-                : "AとBが両方1のときだけ、結果が1になる回路を作ります。"}
-        </p>
-      )}
+      <p>
+        {kind === "signal"
+          ? step === 0
+            ? "A・B・Cが1票ずつ。今は0が2票なので、結果は0です。"
+            : step === 1
+              ? "1が2票になったら、結果はどう変わる？"
+              : step === 2
+                ? "今度はAを0にして、0を2票にしよう。"
+                : "このように多数決をとる部品が、パラメトロンです。ほかの入力も自由に試せます。"
+          : done
+            ? "AとBが両方1のときだけ、結果が1になります。"
+            : sourceSelected
+              ? "枠の中の丸は、どちらでもOK。2本まとめてつながります。"
+              : "AとBが両方1のときだけ、結果が1になる回路を作ります。"}
+      </p>
     </section>
   );
 }
