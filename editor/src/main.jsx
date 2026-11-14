@@ -41,7 +41,7 @@ import { nodeTypes, color } from "./nodes.jsx";
 import { autoArrange, preservePlacement } from "./layout.js";
 import { edgeTypes } from "./PairEdge.jsx";
 import { ClearDialog } from "./ClearDialog.jsx";
-import { Welcome, OnboardingCoach } from "./Welcome.jsx";
+import { Welcome, OnboardingCoach, MajorityReading } from "./Welcome.jsx";
 import {
   isFixedInput,
   placeBlueprint,
@@ -319,6 +319,7 @@ function App() {
       position: { x: 0, y: 0 },
       data: {
         name,
+        majorityIntro: l.demo && !game.introDone,
         value: v.values[name],
         demo: l.demo || l.lockedWiring,
         disabled:
@@ -496,15 +497,23 @@ function App() {
     );
     l.outputs.forEach((name) => add(b.outputs[name], "output:" + name, "in"));
     const arranged = autoArrange(nextNodes, nextEdges);
-    if (mobile && (l.demo || (l.id === "and" && wireGuideActive.current))) {
+    if (l.demo || (mobile && l.id === "and" && wireGuideActive.current)) {
       const points = l.demo
-        ? {
-            "input:A": { x: 0, y: 0 },
-            "input:B": { x: 0, y: 80 },
-            "input:C": { x: 0, y: 160 },
-            "gate:0": { x: 140, y: 60 },
-            "output:Y": { x: 140, y: 300 },
-          }
+        ? mobile
+          ? {
+              "input:A": { x: 0, y: 0 },
+              "input:B": { x: 0, y: 72 },
+              "input:C": { x: 0, y: 144 },
+              "gate:0": { x: 132, y: 32 },
+              "output:Y": { x: 132, y: 216 },
+            }
+          : {
+              "input:A": { x: 0, y: 0 },
+              "input:B": { x: 0, y: 76 },
+              "input:C": { x: 0, y: 152 },
+              "gate:0": { x: 180, y: 36 },
+              "output:Y": { x: 430, y: 64 },
+            }
         : {
             "input:A": { x: 0, y: 0 },
             "input:B": { x: 0, y: 80 },
@@ -529,12 +538,13 @@ function App() {
     setNodes((previous) => {
       const existing = new Map(previous.map((node) => [node.id, node]));
       if (changed) fitNeeded.current = true;
-      const placed = changed
-        ? arranged.map((node) => ({
-            ...node,
-            position: b.flow?.[mode]?.[node.id] || node.position,
-          }))
-        : preservePlacement(arranged, previous, center, b.flow?.[mode]);
+      const placed =
+        changed || l.demo
+          ? arranged.map((node) => ({
+              ...node,
+              position: (!l.demo && b.flow?.[mode]?.[node.id]) || node.position,
+            }))
+          : preservePlacement(arranged, previous, center, b.flow?.[mode]);
       return placed.map((node) => ({
         ...node,
         selected: !changed && existing.get(node.id)?.selected,
@@ -571,7 +581,7 @@ function App() {
       requestAnimationFrame(() =>
         requestAnimationFrame(() =>
           flow.fitView({
-            padding: VIEW_PADDING,
+            padding: guidedIntro ? "20px" : VIEW_PADDING,
             minZoom: 0.2,
             maxZoom: 1,
             duration: 0,
@@ -582,7 +592,12 @@ function App() {
   }, [initialized, nodes, flow]);
   useEffect(() => {
     const timer = setTimeout(
-      () => flow.fitView({ padding: VIEW_PADDING, maxZoom: 1, duration: 150 }),
+      () =>
+        flow.fitView({
+          padding: guidedIntro ? "20px" : VIEW_PADDING,
+          maxZoom: 1,
+          duration: 150,
+        }),
       80,
     );
     return () => clearTimeout(timer);
@@ -723,7 +738,7 @@ function App() {
     );
   return (
     <div
-      className={`page${sideOpen ? " sidebar-open" : ""}${guidedBoard ? " guided-board" : ""}${guidedBoard && guideDone ? " guide-complete" : ""}`}
+      className={`page${sideOpen ? " sidebar-open" : ""}${guidedBoard ? " guided-board" : ""}${guidedBoard && guideDone ? " guide-complete" : ""}${guidedIntro ? " majority-intro" : ""}`}
       data-level={level.id}
     >
       <header className="site-header">
@@ -765,7 +780,7 @@ function App() {
           </label>
         </div>
 
-        {(!guidedBoard || guideDone) && (
+        {!guidedIntro && (!guidedBoard || guideDone) && (
           <button
             className="sidebar-toggle"
             aria-expanded={sideOpen}
@@ -955,12 +970,6 @@ function App() {
               }
               sourceSelected={guideSourceSelected}
               step={majorityStep}
-              result={observed.outputs.Y}
-              votes={
-                level.inputs.filter(
-                  (name) => observed.values[name] === observed.outputs.Y,
-                ).length
-              }
             />
           )}
           <div className="toolbar">
@@ -1081,7 +1090,9 @@ function App() {
                 onReconnect={(edge, c) => connect(c, edge)}
                 isValidConnection={validConnection}
                 onDelete={deleteElements}
-                onEdgeClick={(_, edge) => setSelectedEdge(edge.id)}
+                onEdgeClick={(_, edge) =>
+                  !guidedIntro && setSelectedEdge(edge.id)
+                }
                 onNodeClick={() => setSelectedEdge(null)}
                 onPaneClick={() => setSelectedEdge(null)}
                 connectOnClick
@@ -1092,12 +1103,15 @@ function App() {
                 maxZoom={1.8}
                 zoomOnScroll={false}
                 zoomOnDoubleClick={false}
-                panOnDrag
+                panOnDrag={!guidedIntro}
+                zoomOnPinch={!guidedIntro}
+                preventScrolling={!guidedIntro}
+                elementsSelectable={!guidedIntro}
                 nodesConnectable={!level.demo && !level.lockedWiring}
                 deleteKeyCode={["Backspace", "Delete"]}
               >
-                <Background gap={20} size={1} />
-                {(!guidedBoard || guideDone) && (
+                {!guidedIntro && <Background gap={20} size={1} />}
+                {!guidedIntro && (!guidedBoard || guideDone) && (
                   <Controls
                     showInteractive={false}
                     fitViewOptions={{ padding: VIEW_PADDING }}
@@ -1112,14 +1126,14 @@ function App() {
                     }
                   />
                 )}
-                {(!guidedBoard || guideDone) && (
+                {!guidedIntro && (!guidedBoard || guideDone) && (
                   <Panel position="top-left" className="canvas-key">
                     <WiringGlyph inverted={false} />
                     <span>2本で1信号</span>
                     <span>端子から接続</span>
                   </Panel>
                 )}
-                {(!guidedBoard || guideDone) && (
+                {!guidedIntro && (!guidedBoard || guideDone) && (
                   <Panel position="top-right">
                     <button onClick={arrange} disabled={level.demo}>
                       配置を整える
@@ -1184,7 +1198,18 @@ function App() {
           <div className="canvas-hint" role="status">
             {message || instruction}
           </div>
+          {guidedIntro && (
+            <MajorityReading
+              values={level.inputs.map((name) => observed.values[name])}
+              result={observed.outputs.Y}
+            />
+          )}
           <div className="completion">
+            {guidedIntro && majorityStep > 0 && majorityStep < 3 && (
+              <span className="majority-action-hint">
+                光っている数字を押してみよう
+              </span>
+            )}
             <p data-testid="status">
               {level.demo
                 ? `1が${level.inputs.reduce((sum, name) => sum + observed.values[name], 0)}票 → 出力${observed.outputs.Y}`
@@ -1202,21 +1227,24 @@ function App() {
                 クリア結果
               </button>
             )}
-            {game.level < levels.length - 1 && (
-              <button
-                className="primary"
-                disabled={
-                  level.demo
-                    ? majorityStep !== 0 && !game.onboarding.majorityDone
-                    : !result.clear
-                }
-                onClick={advance}
-              >
-                {level.demo && majorityStep === 0
-                  ? "多数決を試す"
-                  : "次へ：" + lessons[levels[game.level + 1].id].short + " →"}
-              </button>
-            )}
+            {game.level < levels.length - 1 &&
+              (!guidedIntro || majorityStep === 0 || majorityStep === 3) && (
+                <button
+                  className="primary"
+                  disabled={
+                    level.demo
+                      ? majorityStep !== 0 && !game.onboarding.majorityDone
+                      : !result.clear
+                  }
+                  onClick={advance}
+                >
+                  {level.demo && majorityStep === 0
+                    ? "多数決を試す"
+                    : "次へ：" +
+                      lessons[levels[game.level + 1].id].short +
+                      " →"}
+                </button>
+              )}
           </div>
         </div>
       </main>

@@ -43,7 +43,9 @@ function SignalNode({ data }) {
       }
       data-value={data.value}
     >
-      <header className="node-title">{data.name}</header>
+      <header className="node-title">
+        {data.majorityIntro ? "入力" + data.name : data.name}
+      </header>
       <button
         className="signal-switch nodrag nopan"
         onClick={data.toggle}

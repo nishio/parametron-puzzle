@@ -589,13 +589,13 @@ let browser;
     assert.equal(await page.locator('[data-presentation="symbol"]').count(), 1);
     const canvas = await page.locator(".flow-frame").boundingBox();
     assert.ok(
-      canvas.height > 480,
-      "The circuit must use most of the viewport height",
+      canvas.height <= 350 && canvas.height >= 240,
+      "The majority lesson must have a bounded circuit instead of an entire workspace",
     );
     assert.ok(
       await page
         .getByRole("heading", {
-          name: "3つの数字の、多い方を出す部品です。",
+          name: "これが「多数決」の回路です。",
           exact: true,
         })
         .isVisible(),
@@ -603,16 +603,41 @@ let browser;
     );
     assert.ok(
       await page
-        .getByText("A・B・Cが1票ずつ。今は0が2票なので、結果は0です。", {
-          exact: true,
-        })
+        .getByText(
+          "A・B・Cの数字が、それぞれ1票。3票のうち、2票以上ある数字を「結果」に出します。",
+          {
+            exact: true,
+          },
+        )
         .isVisible(),
     );
+    const lesson = await page.locator(".canvas-column").boundingBox();
+    const start = await page
+      .getByRole("button", { name: "多数決を試す", exact: true })
+      .boundingBox();
+    assert.ok(
+      lesson.width <= 720 && start.y + start.height <= 900,
+      "The explanation, circuit, reading and action must fit in one compact lesson",
+    );
+    assert.ok(
+      start.y - (canvas.y + canvas.height) < 240,
+      "The action must remain near the circuit",
+    );
+    assert.match(
+      await page.getByRole("region", { name: "いまの多数決" }).innerText(),
+      /0が\s*2票/,
+    );
+    await page.getByText("線が2本あるのは？", { exact: true }).click();
+    assert.ok(
+      await page.getByText(/票はA・B・Cの数字を1票ずつ数えます/).isVisible(),
+    );
+    await page.getByText("線が2本あるのは？", { exact: true }).click();
     await page
       .getByRole("button", { name: "多数決を試す", exact: true })
       .click();
-    assert.ok(
-      await page.getByRole("button", { name: /次へ：AND/ }).isDisabled(),
+    assert.equal(
+      await page.getByRole("button", { name: /次へ：AND/ }).count(),
+      0,
       "The first action must be tried before advancing",
     );
     assert.equal(
@@ -621,6 +646,16 @@ let browser;
       "The first task must not be hidden behind a lesson panel",
     );
     assert.ok(await page.locator(".onboarding-coach").isVisible());
+    const beforeAction = await page
+      .locator('[data-id="input:B"]')
+      .boundingBox();
+    const targetSize = await page
+      .getByRole("button", { name: "入力Bを切り替える", exact: true })
+      .boundingBox();
+    assert.ok(
+      targetSize.width >= 44 && targetSize.height >= 44,
+      "The guided number must provide a usable touch target",
+    );
     await page
       .getByRole("button", { name: "入力Bを切り替える", exact: true })
       .click();
@@ -629,9 +664,19 @@ let browser;
         .querySelector('[data-testid="status"]')
         .textContent.includes("1が2票"),
     );
-    assert.ok(
-      await page.getByRole("button", { name: /次へ：AND/ }).isDisabled(),
+    assert.equal(
+      await page.getByRole("button", { name: /次へ：AND/ }).count(),
+      0,
       "Both majority outcomes must be tried",
+    );
+    assert.match(
+      await page.getByRole("region", { name: "いまの多数決" }).innerText(),
+      /1が\s*2票/,
+    );
+    const afterAction = await page.locator('[data-id="input:B"]').boundingBox();
+    assert.ok(
+      Math.abs(beforeAction.y - afterAction.y) < 2,
+      "Changing the input must not move the circuit away from the player's attention",
     );
     assert.equal((await stored(page)).onboarding.majorityStep, 2);
     await page.screenshot({
@@ -655,16 +700,32 @@ let browser;
       path: path.join(out, "intro-success-" + width + ".png"),
       fullPage: true,
     });
-    const before = (await page.locator(".flow-frame").boundingBox()).width;
-    await page
-      .getByRole("button", { name: "説明とテスト", exact: true })
-      .click();
-    await page.locator("#lesson-panel").waitFor();
-    if (width === 1280)
-      assert.ok(
-        (await page.locator(".flow-frame").boundingBox()).width < before - 250,
+    assert.equal(
+      await page
+        .getByRole("button", { name: "説明とテスト", exact: true })
+        .count(),
+      0,
+      "Editor tools must stay out of the majority lesson, even after completing it",
+    );
+    if (width === 320) {
+      await page.setViewportSize({ width, height: 667 });
+      await page.locator(".flow-frame").hover();
+      await page.mouse.wheel(0, 500);
+      await page.waitForFunction(
+        () => document.querySelector(".majority-intro").scrollTop > 0,
       );
-    await page.getByRole("button", { name: "説明を畳む", exact: true }).click();
+      const next = page.getByRole("button", { name: /次へ：AND/ });
+      await next.scrollIntoViewIfNeeded();
+      const action = await next.boundingBox();
+      assert.ok(
+        action.y >= 0 && action.y + action.height <= 667,
+        "The next action must remain reachable on a short phone screen",
+      );
+      await page.setViewportSize({ width, height: 900 });
+      await page
+        .locator(".majority-intro")
+        .evaluate((el) => (el.scrollTop = 0));
+    }
     await page.getByRole("button", { name: /次へ：AND/ }).click();
     assert.equal(await page.locator(".react-flow__node-constant").count(), 2);
     assert.equal(

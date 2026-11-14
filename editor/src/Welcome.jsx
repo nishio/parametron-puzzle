@@ -53,27 +53,28 @@ export function Welcome({ onStart, onResume }) {
   );
 }
 
-export function OnboardingCoach({
-  kind,
-  done,
-  sourceSelected,
-  result,
-  votes,
-  step,
-}) {
+export function OnboardingCoach({ kind, done, sourceSelected, step }) {
   return (
     <section
       className="onboarding-coach"
       aria-labelledby="onboarding-task"
       aria-live="polite"
     >
+      {kind === "signal" && (
+        <div className="onboarding-step">
+          パラメトロンのしくみ ·{" "}
+          {step === 0 ? "見る" : step === 3 ? "できた" : "試す"}
+        </div>
+      )}
       <h1 id="onboarding-task">
         {kind === "signal"
           ? step === 0
-            ? "3つの数字の、多い方を出す部品です。"
+            ? "これが「多数決」の回路です。"
             : step === 1
-              ? "Bの0を1にしてみよう。"
-              : `${result}が${votes}票なので、結果は${result}。`
+              ? "Bの0を押して、1にしてみよう。"
+              : step === 2
+                ? "1が2票になり、結果も1に。"
+                : "多数決のしくみを試せました。"
           : done
             ? "回路が完成しました！"
             : sourceSelected
@@ -83,18 +84,46 @@ export function OnboardingCoach({
       <p>
         {kind === "signal"
           ? step === 0
-            ? "A・B・Cが1票ずつ。今は0が2票なので、結果は0です。"
+            ? "A・B・Cの数字が、それぞれ1票。3票のうち、2票以上ある数字を「結果」に出します。"
             : step === 1
               ? "1が2票になったら、結果はどう変わる？"
               : step === 2
-                ? "今度はAを0にして、0を2票にしよう。"
-                : "このように多数決をとる部品が、パラメトロンです。ほかの入力も自由に試せます。"
+                ? "今度はAの1を押して、0を2票にしてみよう。"
+                : "この部品がパラメトロン。数字を自由に変えて試すか、次の回路へ進めます。"
           : done
             ? "AとBが両方1のときだけ、結果が1になります。"
             : sourceSelected
               ? "枠の中の丸は、どちらでもOK。2本まとめてつながります。"
               : "AとBが両方1のときだけ、結果が1になる回路を作ります。"}
       </p>
+    </section>
+  );
+}
+
+export function MajorityReading({ values, result }) {
+  const ones = values.filter((value) => value === 1).length;
+  return (
+    <section
+      className="majority-reading"
+      aria-label="いまの多数決"
+      aria-live="polite"
+    >
+      <div className="majority-votes">
+        {[0, 1].map((value) => (
+          <span key={value} data-value={value} data-winner={result === value}>
+            <b>{value}</b>が <strong>{value === 0 ? 3 - ones : ones}票</strong>
+          </span>
+        ))}
+      </div>
+      <p>
+        <strong>{result}</strong>が多いので、結果は<strong>{result}</strong>。
+      </p>
+      <details className="majority-wire-help">
+        <summary>線が2本あるのは？</summary>
+        <p>
+          2本で1つの信号です。上の線は入力の数字、下の線は反対の数字を運びます。票はA・B・Cの数字を1票ずつ数えます。青が0、黄が1です。
+        </p>
+      </details>
     </section>
   );
 }

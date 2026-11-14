@@ -169,3 +169,195 @@
     font-size: 12px;
   }
 }
+
+/* The first circuit is a small lesson, with its explanation and action nearby. */
+.majority-intro {
+  overflow-y: auto;
+  background: #f2f5f8;
+}
+.majority-intro .site-header {
+  border-bottom: 0;
+  background: transparent;
+}
+.majority-intro .lesson-navigation {
+  display: none;
+}
+.majority-intro .workspace {
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 20px 24px 40px;
+}
+.majority-intro .canvas-column {
+  flex: 0 1 720px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d8e2eb;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 36px #20364d08;
+}
+.majority-intro .onboarding-coach {
+  padding: 24px 28px 8px;
+  min-height: 148px;
+  border: 0;
+}
+.majority-intro .onboarding-step {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #526b80;
+  margin-bottom: 10px;
+}
+.majority-intro .onboarding-coach h1 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+.majority-intro .onboarding-coach > p:last-child {
+  max-width: 570px;
+  color: #40596f;
+  font-size: 14px;
+}
+.majority-intro .canvas-area {
+  flex: 0 0 264px;
+}
+.majority-intro .flow-frame {
+  background: #fff;
+}
+.majority-intro .react-flow__pane {
+  touch-action: pan-y;
+}
+.majority-intro .signal-switch:disabled {
+  opacity: 1;
+}
+.majority-intro .guided-signal {
+  box-shadow: none;
+}
+.majority-intro .guided-signal .signal-switch {
+  box-shadow: 0 0 0 4px #9fc9e9;
+  border: 2px solid #276eaf;
+  background: #edf5fc;
+}
+.majority-intro .signal-switch:focus-visible {
+  outline: 3px solid #20364d;
+  outline-offset: 4px;
+}
+.majority-reading {
+  padding: 12px 28px 8px;
+  text-align: center;
+}
+.majority-votes {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+.majority-votes > span {
+  min-width: 130px;
+  padding: 9px 14px;
+  border: 1px solid #e1e7ed;
+  border-radius: 8px;
+  color: #40596f;
+  font-size: 13px;
+}
+.majority-votes b {
+  font-size: 18px;
+  margin-right: 3px;
+}
+.majority-votes [data-value="0"] b {
+  color: #276eaf;
+}
+.majority-votes [data-value="1"] b {
+  color: #a76b0d;
+}
+.majority-votes [data-winner="true"][data-value="0"] {
+  background: #edf5fc;
+  border-color: #8db3d1;
+}
+.majority-votes [data-winner="true"][data-value="1"] {
+  background: #fff6e7;
+  border-color: #d3b577;
+}
+.majority-reading > p {
+  margin: 12px 0 0;
+  font-size: 15px;
+  color: #20364d;
+}
+.majority-wire-help {
+  margin-top: 16px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #40596f;
+}
+.majority-wire-help summary {
+  cursor: pointer;
+  width: fit-content;
+  padding: 5px 0;
+  margin: 0 auto;
+}
+.majority-wire-help p {
+  margin: 8px auto;
+  max-width: 470px;
+}
+.majority-intro .completion {
+  min-height: 78px;
+  padding: 12px 28px 24px;
+  border: 0;
+  justify-content: center;
+}
+.majority-intro .completion .primary {
+  min-height: 46px;
+  min-width: 200px;
+  font-size: 14px;
+}
+.majority-action-hint {
+  font-size: 13px;
+  color: #40596f;
+}
+@media (max-width: 700px) {
+  .majority-intro .workspace {
+    padding: 8px 10px 24px;
+  }
+  .majority-intro .canvas-column {
+    flex-basis: 420px;
+    border-radius: 14px;
+  }
+  .majority-intro .onboarding-coach {
+    padding: 20px 18px 4px;
+    min-height: 154px;
+  }
+  .majority-intro .onboarding-coach h1 {
+    font-size: 20px;
+  }
+  .majority-intro .onboarding-coach > p:last-child {
+    font-size: 13px;
+  }
+  .majority-intro .canvas-area {
+    flex-basis: 348px;
+  }
+  .majority-intro .compact-signal .signal-switch {
+    width: 52px;
+    height: 52px;
+    min-height: 52px;
+    top: -2px;
+    right: 0;
+  }
+  .majority-reading {
+    padding: 8px 16px;
+  }
+  .majority-votes {
+    gap: 8px;
+  }
+  .majority-votes > span {
+    min-width: 114px;
+    padding: 8px 12px;
+  }
+  .majority-intro .completion {
+    padding: 8px 16px 20px;
+    min-height: 74px;
+  }
+}
+@media (max-width: 360px) {
+  .majority-intro .onboarding-coach {
+    min-height: 192px;
+  }
+}
